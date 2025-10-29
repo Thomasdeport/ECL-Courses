@@ -1,0 +1,178 @@
+Exercice 1 : Bitume, approche PLS, PCR et Lasso 
+
+1) Importation des données
+```{r}
+library(DiceEval)
+library(car)
+library(MASS)
+
+# Lire les fichiers
+bitume_train <- read.table("bitume.train.txt", header = TRUE, sep = "", stringsAsFactors = FALSE)
+bitume_test <- read.table("bitume.test.txt", header = TRUE, sep = "", stringsAsFactors = FALSE)
+# Vérification des dimensions et aperçu
+dim(bitume_train)
+dim(bitume_test)
+```
+2) Visualisation des données d'entrainement 
+
+Spectre de l'échantillon d'apprentissage :
+```{r}
+spectres_train <- bitume_train[, -1] # On extrait la colonne des pénétrabilités
+penetrabilites_train <- bitume_train[, 1]  
+
+# Visualisation des 35 spectres 
+plot(1:ncol(spectres_train), spectres_train[1, ], type = "l", col = "blue",
+     xlab = "Longueur d'onde", ylab = "Intensité", main = "Spectres de l'échantillon d'apprentissage")
+
+for (i in 2:35) {
+    lines(1:ncol(spectres_train), spectres_train[i, ])
+}
+
+
+```
+
+Histogramme des pénétrabilité :
+
+```{r}
+hist(penetrabilites_train, border = "white", main = "Histogramme des pénétrabilités (apprentissage)", xlab = "Pénétrabilité", ylab = "Fréquence")
+```
+
+3) On fait de même avec l'échantillon test : 
+
+Spectre de l'échantillon test :
+```{r}
+spectres_test <- bitume_test[, -1]  
+penetrabilites_test <- bitume_test[, 1]  
+
+# Visualisation des spectres tests
+plot(1:ncol(spectres_test), spectres_test[1, ], type = "l", col = "blue",
+     xlab = "Longueur d'onde", ylab = "Intensité", main = "Spectres de l'échantillon test")
+
+for (i in 2:35) {
+    lines(1:ncol(spectres_test), spectres_test[i, ], col = "blue")
+}
+
+```
+
+Histogramme des pénétrabilité : 
+```{r}
+hist(penetrabilites_test, col = "blue", border = "white", main = "Histogramme des pénétrabilités (test)", xlab = "Pénétrabilité", ylab = "Fréquence")
+```
+
+Bonus ) Utilisation d'un kmean pour tester une approche par classification en fonction du numéro de la classe. 
+```{r}
+spectres_train <- as.matrix(bitume_train[,-1]) 
+spectres_train_scaled <- scale(spectres_train)
+kmeans_model <- kmeans(spectres_train_scaled, centers = 20)  #On fait varier le nombre de centre pour regarder si une tendance quelconque se dégage.
+plot(penetrabilites_train, col = kmeans_model$cluster, 
+     main = "Pénétrabilités en fonction du numéro de classe (K-means)", 
+     xlab = "Index des observations", ylab = "Pénétrabilité")
+
+```
+
+Après différents tests, pour différentes valeurs du nombre de centre. On n'observe pas de correlation évidente entre le numéro de classe et la pénétrabilité.
+
+4) Ajustement d'un modèle PCR, PLS et Lasso  :
+
+```{r}
+library(pls)
+pcr_model <- pcr(PENE ~ ., data = bitume_train, scale = TRUE, validation = "CV")
+summary(pcr_model)
+plot(pcr_model, ncomp = 11) 
+best_ncomp_pcr = 11
+```
+
+On observe que l'erreur de validation ajustée ainsi que l'erreur de validation simple atteignent un premier minimum autour de 17 composantes avant de se stabiliser.
+
+La variance expliquée pour X, elle, augmente continuellement et atteint presque 100% autour de 30 composantes.
+
+Cependant, pour PENE, on observe une forte augmentation de la variance expliquée jusqu'à 11 composants (jusqu'à 97%) et une stabilisation ensuite.
+
+Après 11 composants, l'ajout de composants supplémentaires n'améliore pas considérablement la variance expliquée pour PENE. On retiendra donc un modèle à 11 composantes principales ce qui est un bon compromis entre simplicité et bonne performances du modèle.
+
+```{r}
+# Ajustement d'un modèle PLSR
+plsr_model <- plsr(PENE ~ ., data = bitume_train, scale = TRUE, validation = "CV")
+summary(plsr_model)
+plot(plsr_model, ncomp = 12)  
+best_ncomp_plsr = 12
+```
+
+Le minimum de l'erreur de validation observée est pour un modèle plsr avec 12 composantes, on retiendra donc ce modèle pour fit au données du problème.
+
+En revanche, si l'objectif est de maximiser la variance expliquée dans l'entraînement, on pourrait choisir d'utiliser plus de composants.
+
+Mais cela peut conduire à un sur-ajustement. Après 12 composants, la variance expliquée pour les pénétrabilités devient très proche de 100%, ce qui est généralement un signe de sur-apprentissage.
+
+```{r}
+library(glmnet)
+# Ajustement du modèle Lasso avec validation croisée
+lasso_model <- cv.glmnet(x = as.matrix(bitume_train[,-1]), y = bitume_train$PENE, alpha = 1)
+
+# Résumé et sélection du meilleur lambda
+plot(lasso_model)
+best_lambda = 0.01788  #Cela correspond à Lambda '1SE' qui minimise l'erreur standard du modèle
+lasso_model
+```
+
+```{r}
+# Prédictions sur l'échantillon de test
+pcr_pred <- predict(pcr_model, newdata = bitume_test, ncomp = best_ncomp_pcr)
+plsr_pred <- predict(plsr_model, newdata = bitume_test, ncomp = best_ncomp_plsr)
+lasso_pred <- predict(lasso_model, newx = as.matrix(bitume_test[,-1]), s = best_lambda)
+
+# Comparaison des prédictions avec les valeurs observées
+plot(bitume_test$PENE, pcr_pred, main = "Prédictions vs Observations (PCR)", xlab = "Observations", ylab = "Prédictions")
+abline(0, 1, col = "red") # On tracera à chaque fois cette ligne qui correspond au cas obseration == modèle pour évaluer la qualité du modèle (plus le modèle est bon plus la distance à cette droite est censée être faible)
+
+plot(bitume_test$PENE, plsr_pred, main = "Prédictions vs Observations (PLS)", xlab = "Observations", ylab = "Prédictions")
+abline(0, 1, col = "red") #
+
+plot(bitume_test$PENE, lasso_pred, main = "Prédictions vs Observations (Lasso)", xlab = "Observations", ylab = "Prédictions")
+abline(0, 1, col = "red")
+
+```
+
+```{r}
+# Calcul erreurs PCR
+rmse_pcr <- sqrt(mean((bitume_test$PENE - pcr_pred)^2))
+mae_pcr <- mean(abs(bitume_test$PENE - pcr_pred))
+cat("RMSE pour PCR: ", rmse_pcr, "\n")
+cat("MAE pour PCR: ", mae_pcr, "\n")
+
+# Calcul erreurs PLSR
+rmse_plsr <- sqrt(mean((bitume_test$PENE - plsr_pred)^2))
+mae_plsr <- mean(abs(bitume_test$PENE - plsr_pred))
+cat("RMSE pour PLS: ", rmse_plsr, "\n")
+cat("MAE pour PLS: ", mae_plsr, "\n")
+
+# Calcul erreurs lasso
+rmse_lasso <- sqrt(mean((bitume_test$PENE - lasso_pred)^2))
+mae_lasso <- mean(abs(bitume_test$PENE - lasso_pred))
+cat("RMSE pour Lasso: ", rmse_lasso, "\n")
+cat("MAE pour Lasso: ", mae_lasso, "\n")
+
+```
+
+PLS semble être le modèle le plus robuste ici avec les erreurs les plus faibles, suivi de lasso et PCR (on peut expliquer cela par la réduction dimensionnelle qui pourrait ne pas capturer suffisamment la variabilité des données dans ce cas précis)
+
+6) Modèle linéaire, 
+
+on peut implémenter un simple modèle linéaire qu'on ajuste par une méthode forward par exemple (on ne le fera en revanche pas ici en raison du temps de calcul que cela prendrait). En revanche, on doit être conscient du temps que cela prendra. Il est donc bien plus avantageux d'utiliser une des méthodes bien plus robustes et efficace vu ci-dessus. 
+```{r}
+lm_model <- lm(PENE ~ ., data = bitume_train)
+summary(lm_model)
+lm_pred <- predict(lm_model, newdata = bitume_test)
+
+plot(bitume_test$PENE, lm_pred, main = "Prédictions vs Observations (Modèle Linéaire)", xlab = "Observations", ylab = "Prédictions")
+abline(0, 1, col = "red")
+
+
+# Calcul erreurs linéaire simple
+rmse_lm <- sqrt(mean((bitume_test$PENE - lm_pred)^2))
+mae_lm <- mean(abs(bitume_test$PENE - lm_pred))
+cat("Erreur quadratique moyenne (RMSE) pour le modèle linéaire: ", rmse_lm, "\n")
+cat("Erreur absolue moyenne (MAE) pour le modèle linéaire: ", mae_lm, "\n")
+
+```
+Après implémentation, on remarque que le modèle esst vraiment mauvais. 

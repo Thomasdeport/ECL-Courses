@@ -1,0 +1,276 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## Partie 1
+
+```{r}
+gauss_cov <- function(x1, x2, theta)
+{
+  d = dim(x1)
+  cov = 1
+  for (i in 1:d[2]) {cov = cov * exp(-1/2*((x1[i]-x2[i])/theta[i])^2) }
+  return(cov)
+}
+  
+exp_cov <- function(x1, x2, theta)
+{
+  d = dim(x1)
+  cov = 1
+  for (i in 1:d[2]) {cov = cov * exp(-abs(x1[i]-x2[i])/theta[i]) }
+  return(cov)
+}
+
+matern_cov <- function(x1, x2, theta)
+{
+  d = dim(x1)
+  cov = 1
+  for (i in 1:d[2]) {cov = cov * ((1+sqrt(3)*abs(x1[i]-x2[i])/theta[i])*exp(-sqrt(3)*abs(x1[i]-x2[i])/theta[i]) )}
+  return(cov)
+}
+```
+
+```{r}
+
+process_gaussien <- function(m,theta,n,sigma2)
+{
+  x <- matrix(seq(0, 1, length.out = n),n,1)
+  cov_matrix <- matrix(0, n, n)
+  for (i in 1:n){
+    for (j in 1:n){
+      cov_matrix[i,j] = sigma2 * matern_cov(matrix(x[i],1,1),matrix(x[j],1,1),theta)
+    }
+  }
+  
+  C <- chol(cov_matrix)
+  eps <- matrix(rnorm(n,0 ,1),n,1) 
+  X = matrix(m,n,1) + C%*%eps
+  return(X)
+}
+```
+
+```{r}
+
+
+x = matrix(seq(0, 1, length.out = 100),100,1)
+X1 = process_gaussien(0.1,0.05,100,1)
+X2 = process_gaussien(0.1,0.05,100,1)
+X3 = process_gaussien(0.1,0.05,100,1)
+  
+plot(X1~x , type = 'l', col = "blue")
+lines(X2~x, col = "red")
+lines(X3~x, col = "green")
+```
+
+```{r}
+x1
+```
+
+## Partie 2
+
+```{r}
+m <- 0.1      # trend
+theta <- 0.05 # range
+n <- 40       # Nb de pts de discrétisation
+sigma2 <- 1   #sill 
+
+x = matrix(seq(0, 1, length.out = n),n,1)
+Y = process_gaussien(m,theta,n,sigma2)
+
+set.seed(42)   
+N_pt = 10
+indices <- sample(1:length(x), N_pt)
+x_points <- x[indices]
+y_points <- Y[indices]
+ 
+
+plot(x, Y, type = "l", col = "blue" )
+points(x_points, y_points, col = "red", pch = 19)
+```
+
+```{r}
+
+
+esperence_variance <- function(m,theta,N_pt,x_points,y_points,x_obs)
+{
+cov_matrix <- matrix(0, N_pt, N_pt)
+r = matrix(0,1,N_pt)
+  for (i in 1:N_pt){
+    for (j in 1:N_pt){
+      cov_matrix[i,j] = matern_cov(matrix(x_points[i],1,1),matrix(x_points[j],1,1),theta)
+    }
+    r[i] = matern_cov(matrix(x_obs,1,1),matrix(x_points[i],1,1),theta)
+  }
+
+
+E = m +  r%*%solve(cov_matrix , t((y_points - matrix(m,1,N_pt))) ) 
+var = sigma2 * (1 - r%*%solve(cov_matrix , t((r)) )) 
+return(list( E[[1]] , var[[1]]))
+}
+```
+
+
+
+```{r}
+
+Y_chap = matrix(0,n,1)
+Sigma_chap = matrix(0,n,1)
+  for (i in 1:n){
+    Y_chap[i] = esperence_variance(m,theta,N_pt,x_points,y_points,x[i])[[1]]
+    Sigma_chap[i] = esperence_variance(m,theta,N_pt,x_points,y_points,x[i])[[2]]
+  }
+lower_bound <- Y_chap - 1.96 * sqrt(Sigma_chap)
+upper_bound <- Y_chap + 1.96 * sqrt(Sigma_chap)
+
+plot(Y_chap~x, type = 'l', col = 'blue', ylim = range(c(lower_bound, upper_bound, y_points)),
+     xlab = "Valeurs de x", 
+     ylab = "Valeurs de y")
+lines(upper_bound~x , type = 'l',col = 'red')
+lines(lower_bound~x , type = 'l',col = 'red')
+legend(x="topright",legend=c("moyenne de krigeage","IC à 95%"), text.col=c("blue","red"), col=c("blue","red"))
+points(x_points, y_points, col = "green", pch = 19)
+```
+
+Computing conditional simulations
+
+```{r}
+
+kriging <- function(Y,indices,m,theta,n,sigma2){
+  x = matrix(seq(0, 1, length.out = n),n,1)
+  N_pt = length(indices)
+  x_points <- x[indices]
+  y_points <- Y[indices]
+ 
+  Y_chap = matrix(0,n,1)
+  #Sigma_chap = matrix(0,n,1)
+  for (i in 1:n){
+    Y_chap[i] = esperence_variance(m,theta,N_pt,x_points,y_points,x[i])[[1]]
+    #Sigma_chap[i] = esperence_variance(m,theta,N_pt,x_points,y_points,x[i])[[2]]
+  }
+  return(Y_chap)
+}
+
+conditional_simulation <- function(Y_chap,indices,m,theta,n,sigma2){
+  Y_simul = process_gaussien(m,theta,n,sigma2) #compute simulation non condi
+  Y_simul_chap = kriging(Y_simul,indices,m,theta,n,sigma2) #compute kriging
+  Y_condit_simul = Y_chap + Y_simul -Y_simul_chap #extract the residuals and add it to Y_chap
+  return (Y_condit_simul)
+}
+```
+
+```{r}
+Y_simul_chap1 = conditional_simulation(Y_chap,indices,m,theta,n,sigma2)
+Y_simul_chap2 = conditional_simulation(Y_chap,indices,m,theta,n,sigma2)
+Y_simul_chap3 = conditional_simulation(Y_chap,indices,m,theta,n,sigma2)
+
+plot(Y~x, type = 'l' , col = "blue", lwd = 2,ylim = range(c(Y_simul_chap1,Y_simul_chap2,Y_simul_chap3)))
+lines(Y_simul_chap1~x, type = 'l',col ="purple")
+lines(Y_simul_chap2~x, type = 'l',col ="yellow")
+lines(Y_simul_chap3~x, type = 'l',col ="red")
+points(x_points, y_points, col = "green", pch = 19)
+```
+
+### compute simple kriging for a given function
+
+```{r}
+n = 101
+x <- matrix(seq(0, 1, length.out = n),n,1)
+
+f <- function(x) {
+  (x - 0.2)^2 + (0.05 + 0.2 * x) * sin(2 * pi * x)
+}
+
+set.seed(42)   
+N_pt = 4
+indices <- sample(1:length(x), N_pt)
+x_points <- x[indices]
+y_points <- f(x_points)
+```
+
+
+```{r}
+m <- 0      # trend
+theta <- 0.1 # range
+sigma2 <- 0.02   #sill 
+
+Y = f(x)
+Y_chap = kriging(Y,indices,m,theta,n,sigma2)
+Y_simul_chap1 = conditional_simulation(Y_chap,indices,m,theta,n,sigma2)
+Y_simul_chap2 = conditional_simulation(Y_chap,indices,m,theta,n,sigma2)
+
+plot(Y~x, type = 'l' , col = "blue", lwd = 2,ylim = range(c(Y_simul_chap1,Y_simul_chap2)))
+lines(Y_simul_chap1~x, type = 'l',col ="purple")
+lines(Y_simul_chap2~x, type = 'l',col ="yellow")
+lines(Y_chap~x, type = 'l',col ="red")
+
+points(x_points, y_points, col = "green", pch = 19)
+```
+
+### Branin function 
+
+```{r}
+branin <- function(x) {
+  (x[,2] - 5.1 * x[,1]^2 / (4 * pi^2) + 5 * x[,1] / pi - 6)^2 + 
+    10 * (1 - 1 / (8 * pi)) * cos(x[,1]) + 10
+}
+
+set.seed(42)
+n_points <- 10
+x_obs <- data.frame(x1 = runif(n_points, -5, 10), x2 = runif(n_points, 0, 15))
+y_obs <- branin(x_obs)
+```
+
+```{r}
+install.packages("DiceKriging")
+library(DiceKriging)
+```
+
+```{r}
+model_branin <- km(
+  design = x_obs, 
+  response = y_obs, 
+  covtype = "matern5_2"
+)
+
+# Define a grid for predictions
+x_grid <- expand.grid(
+  x1 = seq(-5, 10, length.out = 50),
+  x2 = seq(0, 15, length.out = 50)
+)
+pred_branin <- predict(model_branin, newdata = x_grid, type = "UK")
+
+# Visualize the kriging surface
+# Create a 3D perspective plot
+persp_matrix <- persp(
+  x = seq(-5, 10, length.out = 50), 
+  y = seq(0, 15, length.out = 50), 
+  z = matrix(pred_branin$mean, nrow = 50, ncol = 50), 
+  theta = 30, phi = 30, 
+  col = "blue", shade = 0.5,
+  xlab = "x1", ylab = "x2", zlab = "Prediction",
+  main = "3D Perspective Plot of Kriging Prediction"
+)
+
+# Add observation points projected onto the surface
+points(trans3d(x_obs$x1, x_obs$x2, y_obs, pmat = persp_matrix), col = "red", pch = 19)
+```
+
+```{r}
+filled.contour(
+  seq(-5, 10, length.out = 50), 
+  seq(0, 15, length.out = 50), 
+  matrix(pred_branin$mean, nrow = 50, ncol = 50),
+  color = terrain.colors, xlab = "x1", ylab = "x2", 
+  main = "Heatmap with Contours of Kriging Prediction"
+)
+
+# Add observation points
+points(x_obs, pch = 19, col = "red")
+
+```
+
+```{r}
+points(trans3d(x_obs$x1, x_obs$x2, y_obs, pmat = persp), col = "red", pch = 19)
+
+```

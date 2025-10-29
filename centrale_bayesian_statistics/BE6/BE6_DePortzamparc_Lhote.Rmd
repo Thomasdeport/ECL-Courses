@@ -1,0 +1,256 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Exercice 4
+
+**Question 1 - reprendre les questions de l'Exercice 2**
+
+```{r}
+library(ggplot2)
+
+f <- function(x) {
+  return(10 * (x * sin(10 * x) + x * cos(20 * x)))
+}
+
+x_grid <- seq(0, 1, by = 0.01)
+y_grid <- f(x_grid)
+
+plot(x_grid, y_grid, type = "l", col = "blue", lwd = 2,
+     main = "Tracé de la fonction f(x) sur [0,1]",
+     xlab = "x", ylab = "f(x)")
+```
+
+```{r}
+set.seed(42)
+x_sample <- sort(runif(4, 0, 1))
+y_sample <- f(x_sample)
+
+plot(x_grid, y_grid, type = "l", col = "blue", lwd = 2,
+     main = "Tracé de f(x) avec 4 points aléatoires",
+     xlab = "x", ylab = "f(x)")
+points(x_sample, y_sample, col = "red", pch = 19, cex = 1.5)
+
+
+```
+
+```{r}
+library(DiceKriging)
+
+km_model <- km(
+  formula = ~1, 
+  design = data.frame(x = x_sample), 
+  response = y_sample,
+  covtype = "matern5_2",
+  control = list(pop.size = 50), 
+  optim.method = "gen",
+  lower = c(0.05)  #contraintes sur θ
+)
+
+#kriegeage
+pred <- predict(km_model, newdata = data.frame(x = x_grid), type = "UK", checkNames = FALSE)
+
+#fonction reele
+y_min <- min(y_grid, pred$mean - 1.96 * pred$sd)
+y_max <- max(y_grid, pred$mean + 1.96 * pred$sd)
+plot(x_grid, y_grid, type = "l", col = "black", lwd = 2, ylim = c(y_min, y_max),
+     main = "Krigeage de f(x) avec intervalles de confiance",
+     xlab = "x", ylab = "f(x)")
+points(x_sample, y_sample, col = "red", pch = 19, cex = 1.5)
+
+# Ajouter la prédiction du kriegage
+lines(x_grid, pred$mean, col = "blue", lwd = 2)
+
+#Ajout des IC
+lines(x_grid, pred$mean + 1.96 * pred$sd, col = "blue", lty = 2)
+lines(x_grid, pred$mean - 1.96 * pred$sd, col = "blue", lty = 2)
+
+legend("bottomleft", legend = c("Vraie fonction f(x)", "Points observés", "Krigeage", "Intervalle de confiance 95%"),
+       col = c("black", "red", "blue", "blue"), 
+       lty = c(1, NA, 1, 2), 
+       pch = c(NA, 19, NA, NA), 
+       lwd = c(2, NA, 2, 1))
+
+```
+
+Question 2,3,4  - Ajouter 10 points selon le critère ”jn” en utilisant la fonction EGI du package
+KrigInv.		
+
+```{r}
+
+library(KrigInv)
+n_init <- 4
+X_init <- matrix(c(0.1,0.4,0.7,1), ncol = 1)
+y_init <- f(X_init)
+
+T <- 2
+n_iter <- 10 
+
+# Algorithme EGI pour approximer Gamma
+for (i in 1:n_iter) {
+  new_points <- EGI(model = km_model, method = "jn", lower = 0, upper = 1, T= T, iter = 1, fun = f)
+  
+  # Mise à jour des données
+  X_init <- rbind(X_init, new_points$par)
+  y_init <- c(y_init, f(new_points$par))
+  km_model <- km(
+  formula = ~1, 
+  design = data.frame(x = X_init), 
+  response = y_init,
+  covtype = "matern5_2",
+  control = list(pop.size = 50), 
+  optim.method = "gen",
+  lower = 0.05  
+)
+}
+  
+
+# Estimation de Gamma (points où f(x) ≥ 2)
+Gamma_estimation <- X_init[y_init >= T]
+
+# Affichage des points estimés
+print(Gamma_estimation)
+
+# Visualisation des résultats
+plot(seq(0, 1, length.out = 100), f(seq(0, 1, length.out = 100)), type = "l",
+     main = "Estimation de Gamma", xlab = "x", ylab = "f(x)")
+points(X_init,y_init, col = "green", pch = 19)
+points(Gamma_estimation, rep(2, length(Gamma_estimation)), col = "red", pch = 19)
+X_init_jn = X_init
+y_init_jn = y_init
+```
+
+De cette manière on détermine un intervalle pour gamma, à savoir l'ensemble des valeurs comprises dans [min (Gamma_estim),max (Gamma_estim)], Dans la plupart des cas on obtient des résultats satisfaisant (mais on remarque dans le cas ci dessus, on peut avoir trop peu de point dans la zone d'intérêt) en augmentant le nombre de point on peut arriver à trouver un intervalle plus satisfaisant. (CF ci dessous : )
+
+5) On va comparer les méthode 'jn' aux méthodes 'sur' et 'timse' :
+
+Brièvement, on sait que :
+
+-   La méthode **'jn'** sélectionne de nouveaux points en maximisant un critère basé sur la réduction de l’incertitude locale, ce qui en fait une approche rapide et efficace, bien adaptée aux problèmes de faible dimension. Cependant, elle peut être moins performante dans des situations où la structure de la fonction cible est complexe.
+
+-   En comparaison, la méthode **'sur'** privilégie les zones où l'incertitude sur la position du seuil est la plus élevée, garantissant ainsi une meilleure stabilité de convergence, mais au prix d’un plus grand nombre d’évaluations de la fonction.
+
+-   Enfin, la méthode **'timse'** vise à minimiser l'erreur quadratique moyenne intégrée autour du seuil T, ce qui la rend particulièrement précise lorsqu'on cherche à identifier une région critique, mais elle peut être plus coûteuse en termes de calcul et sensible aux hyperparamètres du modèle gaussien.
+
+```{r}
+
+library(KrigInv)
+X_init <-matrix(c(0.1,0.4,0.7,1), ncol = 1)
+y_init <- f(X_init)
+
+T <- 2
+n_iter <- 10 
+
+# Algorithme EGI pour approximer Gamma
+for (i in 1:n_iter) {
+  new_points <- EGI(model = km_model, method = "sur", lower = 0, upper = 1, T= T, iter = 1, fun = f)
+  
+  # Mise à jour des données
+  X_init <- rbind(X_init, new_points$par)
+  y_init <- c(y_init, f(new_points$par))
+}
+  
+
+# Estimation de Gamma (points où f(x) ≥ 2)
+Gamma_estimation <- X_init[y_init >= T]
+
+# Affichage des points estimés
+print(Gamma_estimation)
+
+# Visualisation des résultats
+plot(seq(0, 1, length.out = 100), f(seq(0, 1, length.out = 100)), type = "l",
+     main = "Estimation de Gamma", xlab = "x", ylab = "f(x)")
+points(X_init,y_init, col = "green", pch = 19)
+points(Gamma_estimation, rep(2, length(Gamma_estimation)), col = "red", pch = 19)
+```
+
+```{r}
+X_init <- matrix(c(0.1,0.4,0.7,1), ncol = 1)
+y_init <- f(X_init)
+
+T <- 2
+n_iter <- 10
+
+# Algorithme EGI pour approximer Gamma
+for (i in 1:n_iter) {
+  new_points <- EGI(model = km_model, method = "timse", lower = 0, upper = 1, T= T, iter = 1, fun = f)
+  
+  # Mise à jour des données
+  X_init <- rbind(X_init, new_points$par)
+  y_init <- c(y_init, f(new_points$par))
+}
+  
+
+# Estimation de Gamma (points où f(x) ≥ 2)
+Gamma_estimation <- X_init[y_init >= T]
+
+# Affichage des points estimés
+print(Gamma_estimation)
+
+# Visualisation des résultats
+plot(seq(0, 1, length.out = 100), f(seq(0, 1, length.out = 100)), type = "l",
+     main = "Estimation de Gamma", xlab = "x", ylab = "f(x)")
+points(X_init,y_init, col = "green", pch = 19)
+points(Gamma_estimation, rep(2, length(Gamma_estimation)), col = "red", pch = 19)
+```
+
+# Exercice 5 
+
+En accord avec les conclusions tirés de l'exercice précédent, on va choisir de partir sur la méthode 'sur' pour ce problème d'inversion car elle devrait en théorie mieux converger que les autres.
+
+```{r}
+# Nombre de points initiaux
+n_init <- 5
+X_init <- matrix(runif(2 * n_init, 0, 1), ncol = 2)  # Espace 2D
+y_init <- apply(X_init, 1, branin)  # Évaluation avec la fonction Branin de KrigInv
+
+# Modèle de krigeage initial
+km_model <- km(design = X_init, response = y_init, covtype = "matern5_2")
+
+# Seuil pour Gamma
+T <- 80
+n_iter <- 15
+
+# Algorithme EGI pour approximer Gamma
+for (i in 1:n_iter) {
+  new_points <- EGI(model = km_model, method = "sur", lower = c(0, 0), upper = c(1, 1), 
+                    T = T, iter = 1, fun = branin)
+  
+  # Mise à jour des données
+  X_init <- rbind(X_init, new_points$par)
+  y_init <- c(y_init, apply(new_points$par, 1, branin))
+  
+  # Mise à jour du modèle de krigeage
+  km_model <- km(design = X_init, response = y_init, covtype = "matern5_2")
+}
+
+# Estimation de Gamma (points où f(x) ≥ T)
+Gamma_indices <- which(y_init >= T)
+Gamma_estimation <- X_init[Gamma_indices, , drop = FALSE]
+
+# Affichage des points estimés
+print(Gamma_estimation)
+
+# Visualisation des résultats
+n_grid <- 50
+x_grid <- y_grid <- seq(0, 1, length.out = n_grid)
+design_grid <- expand.grid(x_grid, y_grid)
+response_grid <- apply(design_grid, 1, branin)
+z_grid <- matrix(response_grid, n_grid, n_grid)
+
+indices <- which(z_grid >= T, arr.ind = TRUE)
+
+X_ok = x_grid[indices[, 1]]
+Y_ok = x_grid[indices[, 2]]
+
+# Contour plot avec points estimés
+contour(x_grid, y_grid, z_grid, nlevels = 40, main = "Estimation de Gamma (Branin 2D)")
+points(X_ok,Y_ok, points(X_ok, Y_ok, col = "red", pch = 19, cex = 1.2))
+points(X_init, col = "green", pch = 19)  # Points explorés
+points(Gamma_estimation, col = "red", pch = 19)  # Points de Gamma estimés
+X_init_sur_branin = X_init
+y_init_sur_branin = y_init
+```

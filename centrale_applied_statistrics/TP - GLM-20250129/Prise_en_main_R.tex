@@ -1,0 +1,619 @@
+\documentclass[11pt]{article}
+
+
+\RequirePackage{natbib}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{fullpage}
+
+\RequirePackage{amsthm}
+\RequirePackage{enumerate}
+\RequirePackage{color}
+\RequirePackage{placeins}
+\RequirePackage{pdfsync}
+\RequirePackage{mathbbol}
+\RequirePackage{amsmath}
+\RequirePackage{amsthm}
+\RequirePackage[colorlinks]{hyperref}
+\RequirePackage{xcolor}
+\RequirePackage{array}
+\RequirePackage{booktabs}
+\RequirePackage{graphicx}
+%%\usepackage[font=sl,position=top]{caption}
+\definecolor{halfgray}{gray}{0.55} % chapter numbers will be semi transparent .5 .55 .6 .0
+\definecolor{webgreen}{rgb}{0,.5,0}
+\definecolor{webbrown}{rgb}{.6,0,0}
+\definecolor{RoyalBlue}{rgb}{0,0.08,0.45}
+\RequirePackage{hypernat}
+\RequirePackage{multirow}
+\usepackage{tikz}
+\usepackage{alltt} 
+ \usepackage[]{color}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Textclass specific LaTeX commands.
+\def\QEDclosed{\mbox{\texttt{R}ule[0pt]{1.3ex}{1.3ex}}} % for a filled box
+\def\QEDopen{{\setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.2pt}\fbox{\texttt{R}ule[0pt]{0pt}{1.3ex}\texttt{R}ule[0pt]{1.3ex}{0pt}}}}
+\def\QED{\QEDclosed} % default to closed
+
+
+%%\texttt{R}enewcommand{\theequation}{\thesection.\arabic{equation}}
+\numberwithin{equation}{section}
+\newtheorem{thm}[equation]{Théorème}
+\newtheorem{cor}[equation]{Corollaire}
+\newtheorem{lem}[equation]{Lemme}
+\newtheorem{prp}[equation]{Proposition}
+\newtheorem{propt}[equation]{Propriétés}
+\newtheorem{clm}[equation]{Claim}
+\newtheorem{cond}[equation]{Condition}  
+\theoremstyle{remark}
+\newtheorem{crt}[equation]{Criterion}
+\newtheorem{dfn}[equation]{Définition}
+\newtheorem{hyp}[equation]{Hypothèses}
+\newtheorem{rem}[equation]{Remarque}
+\newtheorem{exe}[equation]{Exemple}
+\newtheorem{exo}[equation]{Exercice}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\newcommand{\mathd}{\mathrm{d}}
+\newcommand{\mathe}{\mathrm{e}}
+\newcommand{\tmmathbf}[1]{\ensuremath{\boldsymbol{#1}}}
+\newcommand{\tmop}[1]{\ensuremath{\operatorname{#1}}}
+\newcommand{\EXP}{\ensuremath{\mathbb{E}}}
+\newcommand{\IND}{\mathbb{I}}
+\newcommand{\KT}{\textsc{kt}}
+\newcommand{\Np}{\ensuremath{\mathbb{N}_+}}
+\newcommand{\N}{\ensuremath{\mathbb{N}}}
+\newcommand{\probaB}{\ensuremath{\mathbb{P}}}
+\newcommand{\equivaut}{\ensuremath{\Leftrightarrow}}
+\newcommand{\M}{\ensuremath{\mathfrak M}}
+\newcommand{\longrightarrowlim}{\ensuremath{\mathop{\longrightarrow}\limits}}
+\newcommand{\var}{\operatorname{Var}}
+\newcommand{\esp}{\mathbb{E}}
+\newcommand{\pt}{\enspace .}
+\newcommand{\ent}{\operatorname{Ent}}
+\newcommand{\dis}{\stackrel{d}{=}}
+\newcommand{\proba}{\mathbb{P}}
+\newcommand{\cov}{\operatorname{Cov}}
+\newcommand{\arsinh}{\operatorname{arsinh}}
+\definecolor{fgcolor}{rgb}{0,0,0}
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{.95, 0.5, 0}%1, 0, 1
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{}
+
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.43,0.21,0.1}{#1}}% numeric  0.686,0.059,0.569
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.43,0.21,0.1}{#1}}% string  0.192,0.494,0.8  hellblau
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.54,0.25,0.27}{#1}}% comment  0.678,0.584,0.686
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%  
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0,0.2,0.4}{#1}}%  nom de variables  0.345,0.345,0.345
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.43,0.21,0.1}{#1}}%option 0.333,0.667,0.333
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.76,0.13,0.28}{\textbf{#1}}}% 
+
+\title{Prise en main de R}
+\author{Maud Thomas}
+\date{}
+\begin{document}
+
+\maketitle
+\setcounter{page}{1}
+\tableofcontents
+\section{Prise en main de \texttt R}
+
+
+Le logiciel \texttt R est un logiciel d'étude statistique. Ce logiciel
+sert à manipuler des données, à tracer des graphiques et à faire des analyses statistiques sur ces données.
+Il s'agit d'un logiciel {\it opensource} et multi-plates-formes qui fonctionne sous UNIX (et Linux), Windows et Macintosh. 
+Il est distribué gratuitement et vous pouvez le télécharger et installer sur une machine personnelle. 
+
+Cette initiation à \texttt R  s'appuie sur la fiche de Tabea Rebafka, les livres {\it Le logiciel R} de Lafaye de Micheaux et al., et {\it Statistiques avec R} de Cornillon {\it et al.} qui fournissent des introductions plus complètes  au logiciel \texttt{R}. 
+
+
+\subsection{Interfaces}
+
+L'interface graphique \texttt{RStudio} permet une utilisatoin plus commode et plus jolie que l'interface standard de \texttt{R}. 
+
+On peut également utiliser un notebook qui est un document interactif qui contient des paragraphes de texte ainsi que des bouts de code, que l'on peut modifier et exécuter. Les notebooks se prêtent bien pour remplacer les feuilles de TP en papier ou comme un appui pour une réunion.   %Vous allez en voir en TP. 
+En revanche, pour développer du code il est préférable d'utiliser l'interface standard de \texttt R ou \texttt{RStudio}.
+
+
+\subsubsection{Installation}
+ Pour  installer \texttt R et   les autres programmes sur votre ordinateur personnel voici les démarches (qu'il vaut mieux exécuter dans l'ordre). Notez que tout est gratuit.
+
+\begin{enumerate}
+ \item \textbf{Installer} \texttt{R} à partir de la plateforme du CRAN à l'adresse \\ \url{http://cran. r-project.org}\\ Installer toujours la dernière version.
+\item  \textbf{Installer}  \texttt{RStudio} à partir du site\\ \url{https://www.rstudio.com/products/rstudio/download2/}
+\item  {\bf Installer   Jupyter Notebook}.  Quelques instructions sont disponibles à l'adresse\\
+\url{http://jupyter.readthedocs.io/en/latest/install.html}\\
+Le plus simple pour obtenir Jupyter est de passer à travers Anaconda que l'on peut télécharger sur le site\\ \url{https://www.continuum.io/downloads}\\
+ Le choix de la version de Python (Python 2.7 ou Python 3.5) n'a pas d'importance pour nous.
+
+\item {\bf Installer le kernel \texttt{R} pour Jupyter Notebook}. 
+
+Pour plus d'informations sur l'installation du kernel voir\\
+ \url{https://github.com/IRkernel/IRkernel/blob/master/README.md}
+ 
+ 
+{\bf Sous Windows} il faut essentiellement  ouvrir \texttt{R} et exécuter les instructions suivantes:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{install.packages}\hlstd{(}\hlkwd{c}\hlstd{(}\hlstr{'pbdZMQ'}\hlstd{,} \hlstr{'repr'}\hlstd{,} \hlstr{'devtools'}\hlstd{))}
+\hlstd{devtools}\hlopt{::}\hlkwd{install_github}\hlstd{(}\hlstr{'IRkernel/IRkernel'}\hlstd{)}
+\hlstd{IRkernel}\hlopt{::}\hlkwd{installspec}\hlstd{()}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+{\bf Sous Mac}, il faut faire pareil, mais il faut lancer \texttt{R} à partir d'un terminal. Pour cela, on tape simplement
+\begin{verbatim}
+R
+\end{verbatim}
+dans un terminal, puis on exécute les commandes ci-dessus et pour sortir de \texttt{R} on tape
+\begin{verbatim}
+q()
+\end{verbatim}
+Ensuite, on lance Jupyter depuis le terminal par la commande
+\begin{verbatim}
+jupyter notebook
+\end{verbatim}
+ou l'on peut ouvrir Anaconda et lancer \og{}jupyter notebook \fg{}.
+
+{\bf Sous Ubuntu}, taper la commande suivante dans le terminal (avec votre mot de passe)
+\begin{verbatim}
+sudo apt-get install libcurl4-openssl-dev libssl-dev libzmq3-dev
+\end{verbatim}
+ensuite lancer \texttt{R} depuis le terminal par l'instruction
+\begin{verbatim}
+R
+\end{verbatim}
+puis tapez
+\begin{verbatim}
+install.packages(c(`crayon`, `pbdZMQ`, `devtools`))
+devtools::install_github(paste0(`IRkernel/`, c(`repr`, `IRdisplay`,
+  `IRkernel`)))
+IRkernel::installspec()
+\end{verbatim}
+Enfin quitter \texttt{R} par la commande
+\begin{verbatim}
+q()
+\end{verbatim}
+et taper 
+\begin{verbatim}
+jupyter notebook
+\end{verbatim}
+dans le terminal pour lancer Jupyter.
+\end{enumerate}
+
+
+
+
+\subsection{Ma première session}
+
+Lancer \texttt{RStudio} sur votre machine.
+
+Vous voyez apparaître trois fenêtres. La plus importante est celle à gauche :  la fenêtre de commandes ou ligne de commandes ({\it Console}). La console   permet d'exécuter des instructions ou commandes.  \`A la fin de l'affichage qui se déroule dans la console,
+le caractère d'invite de commande \texttt> vous invitant à taper votre première
+instruction en langage \texttt R.
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+>
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+Il s'agit du symbole d'incitation à donner une instruction ({\it prompt symbol}).
+
+
+ 
+
+
+\subsubsection{\texttt R comme calculatrice}
+Tout d'abord, on peut utiliser  \texttt R   comme une calculette classique. Essayons de calculer $2+3$:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlnum{2}\hlopt{+}\hlnum{3}
+\end{alltt}
+\begin{verbatim}
+[1] 5
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+\texttt R nous  a compris et affiche le bon résultat. Essayons un exemple légèrement plus difficile:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlnum{3}\hlopt{+}\hlnum{8}\hlopt{^}\hlnum{2}\hlopt{*}\hlstd{(}\hlnum{1}\hlopt{-}\hlnum{3}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] -125
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Nous voyons que \texttt R connaît bien les règles de calcul et les priorités opératoires. 
+Quand \texttt R ne comprend pas l'instruction, parce qu'elle est erronée, il affiche un message d'erreur:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+2+*2
+\end{alltt}
+
+
+{\ttfamily\noindent\bfseries\color{errorcolor}{Error: <text>:1:3: '*' inattendu(e)\\1: 2+*\\\ \ \ \ \ \ \textasciicircum{}}}\end{kframe}
+\end{knitrout}
+Si l'instruction est incomplète, \texttt R retourne le signe \texttt + au lieu du prompteur \texttt >. Il faut alors compléter l'instruction ou sortir de cette situation et récupérer la main en tapant \fbox{Ctrl} + \fbox{c} ou \fbox{Echap}: 
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlnum{2}\hlopt{*}\hlstd{(}\hlnum{3}\hlopt{+}\hlnum{1}
+\hlstd{+ }\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] 8
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Il existe de nombreuses fonctions mathématiques prédéfinies sous \texttt R. Exemples:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{exp}\hlstd{(}\hlnum{1}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] 2.718282
+\end{verbatim}
+\begin{alltt}
+\hlstd{> }\hlkwd{sqrt}\hlstd{(}\hlnum{2}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] 1.414214
+\end{verbatim}
+\begin{alltt}
+\hlstd{> }\hlkwd{abs}\hlstd{(}\hlopt{-}\hlnum{5.7}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] 5.7
+\end{verbatim}
+\begin{alltt}
+\hlstd{> }\hlkwd{round}\hlstd{(}\hlopt{-}\hlnum{5.7}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] -6
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Lorsqu'on effectue un calcul inadmissible, \texttt R  renvoie la valeur \texttt{NaN} (pour {\it not a number}) et affiche un warning:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{sqrt}\hlstd{(}\hlopt{-}\hlnum{2}\hlstd{)}
+\end{alltt}
+
+
+{\ttfamily\noindent\color{warningcolor}{Warning in sqrt(-2): production de NaN}}\begin{verbatim}
+[1] NaN
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+La valeur \texttt{Inf} représente l'infini. Exemples:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlnum{1}\hlopt{/}\hlnum{0}
+\end{alltt}
+\begin{verbatim}
+[1] Inf
+\end{verbatim}
+\begin{alltt}
+\hlstd{> }\hlopt{-}\hlkwd{exp}\hlstd{(}\hlkwd{exp}\hlstd{(}\hlnum{100}\hlstd{))}
+\end{alltt}
+\begin{verbatim}
+[1] -Inf
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Il faut jamais oublier que des calculs numériques ne sont pas forcément exacts à cause de la discrétisation inévitable des nombres sur une machine. Comparer les sorties suivantes:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{sin}\hlstd{(}\hlnum{0}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] 0
+\end{verbatim}
+\begin{alltt}
+\hlstd{> }\hlkwd{sin}\hlstd{(pi)}
+\end{alltt}
+\begin{verbatim}
+[1] 1.224647e-16
+\end{verbatim}
+\begin{alltt}
+\hlstd{> }\hlkwd{sin}\hlstd{(}\hlnum{2}\hlopt{*}\hlstd{pi)}
+\end{alltt}
+\begin{verbatim}
+[1] -2.449294e-16
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+La précision de machine est de l'ordre de $10^{-16}$. Cela semble petit, mais dans certains cas, les erreurs s'amplifient de façon étonnante. Exemple:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{sin}\hlstd{(pi}\hlopt{*}\hlnum{10}\hlopt{^}\hlnum{16}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+[1] -0.3752129
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+
+\subsubsection{L'aide dans   \texttt R}   
+Le logiciel  \texttt R  poss\`ede un syst\`eme d'aide efficace. 
+Cette aide très complète, en anglais, est accessible au moyen de la fonction
+\texttt{help()} ou la commande \texttt{?} suivi du nom de la fonction pour laquelle vous cherchez de l'aide.
+Vous pouvez par exemple taper
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{help}\hlstd{(abs)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+où de façon équivalente
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlopt{?}\hlstd{abs}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+ pour obtenir de l'aide sur la fonction \texttt{abs()}.
+Vous constatez que chacune de ces commandes ouvre la page d'aide de la fonction \texttt{abs()} dans la fenêtre en bas à droite dans \texttt{RStudio}.
+On y trouve une description de la fonction, la liste des arguments à renseigner avec  éventuellement leur valeur par défaut et la liste de résultats retournée par la fonction. En fin d'aide, un ou plusieurs exemples d'utilisation de la fonction sont présents et peuvent être copiés-collés dans \texttt{R} afin de comprendre son utilisation.
+
+Prenez le plus possible l'habitude d'utiliser le système d'aide de
+\texttt R.
+
+
+
+
+\subsubsection{Scripts}
+Au lieu de travailler directement dans la ligne de commandes, vous pouvez  écrire des scripts. Un script est un fichier texte qui contient  une succession de commandes. Vous pouvez le sauvegarder et le rouvrir lors d'une session ultérieure. 
+Pour développer du code, l'utilisation de scripts  est indispensable. 
+
+Pour créer  un nouveau script et le sauvegarder, on utilise le menu déroulant.  La terminaison de fichier d'un  script \texttt{R} est \texttt{.R}.
+
+ 
+Afin d'exécuter une partie des commandes d'un script, on sélectionne les lignes voulues et  
+on appuie sur le bouton \fbox{Run} dans la barre à outils ou 
+on appuie sur \fbox{Ctrl} + \fbox{R} (\fbox{Cmd} + \fbox{Enter} pour les Mac).  
+Vous pouvez
+aussi exécuter une seule ligne d'instructions \texttt R du script en tapant \fbox{Ctrl} + \fbox{R}
+lorsque le curseur clignotant se trouve sur la ligne en question dans la
+fenêtre de script.
+Pour exécuter l'ensemble des instructions d'un script, on clique sur le bouton \fbox{Source}. Cela évitera
+de surcharger inutilement votre console.
+
+ 
+Il est possible d'ins\'erer des commentaires dans vos programmes en les faisant pr\'ec\'eder du caract\`ere \textbf{\#} : 
+%\begin{knitrout}
+%\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+%\begin{alltt}
+%\hlstd{> }\hlcom{# ceci est un commentaire}
+%\end{alltt}
+%\end{kframe}
+%\end{knitrout}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlstr{'ce qui suit'} \hlcom{# ne s'affiche pas}
+\end{alltt}
+\begin{verbatim}
+[1] "ce qui suit"
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Tout ce qui est écrit après le caractère \textbf{\#} jusqu'à la fin de la ligne n'est pas interprété par \texttt R.
+Des commentaires permettent de fournir des informations utiles sur votre programme pour les futurs utilisateurs du script.
+
+% print
+
+\subsubsection{Répertoire de travail}
+ Le répertoire de travail (en anglais {\it working directory}) est le répertoire par défaut. C'est par exemple le  répertoire qui s'ouvre quand vous cliquez sur le bouton pour enregistrer un script.
+ La commande pour connaître le répertoire de travail actuel est  
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{getwd}\hlstd{()}
+\end{alltt}
+\begin{verbatim}
+[1] "/Users/tabea/Enseignement/statistique_de_base/poly"
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Pour le changer, aller dans {\it Session} $\texttt{R}ightarrow$ {\it Set Working Directory} $\texttt{R}ightarrow$ {\it Choose Directory} et  sélectionner le dossier souhaité. On peut également changer le répertoire de travail en utilisant la fonction \texttt{setwd()} (au risque de ne pas y arriver à cause des nombreuses fautes de frappes possibles\dots):
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{setwd}\hlstd{(}\hlstr{"/Users/tabea/Enseignement/statistique_de_base/2016/TP"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+Prenez l'habitude  de  changer le répertoire de travail à chaque ouverture de session avant tout autre chose. Par ailleurs, pour une bonne gestion des fichiers, il est fortement recommandé de créer un dossier pour chaque projet sur lequel vous travailler.  
+
+\subsubsection{Créer des objets \texttt{R}}
+La force de \texttt{R} (comme de toute autre langage de programmation) consiste à aller au-delà de la simple utilisation de \texttt{R} comme calculatrice.
+Comme vous l'avez sans doute remarqué, \texttt R répond à vos requêtes en affichant le résultat obtenu après évaluation. Ce résultat est affiché puis perdu. Dans une première utilisation, cela peut paraître agréable, 
+mais dans une utilisation plus poussée 
+il apparaît plus intéressant de rediriger la sortie
+\texttt R de votre requête en la stockant dans une variable. 
+En fait, pour  développer des programmes, c'est-à-dire  des ensembles de plusieurs  d'instructions,  il est très utile de pouvoir créer des objets  qui stockent de l'information, qu'on peut modifier et avec lesquels on peut faire des calculs.
+
+La création d'un objet \texttt{R} est tout simple. Dès qu'on affecte une valeur à un nom de variable, l'objet -- s'il n'existe pas déjà -- est créé et prend la valeur qu'on est en train de lui affecter. Cette opération s'appelle
+ affectation du résultat dans une variable. 
+Une affectation évalue
+ainsi une expression, mais n'affiche pas le résultat qui est en fait stocké dans
+un objet. 
+Exemple: On crée une variables de nom \texttt{x} qui prend la valeur $74$:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlstd{x} \hlkwb{<-} \hlnum{70} \hlopt{+} \hlnum{4}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+L'exécution de cette instruction ne produit pas de sortie, mais l'objet a bien été créé. Pour afficher la valeur d'un objet, on tape son nom dans la console:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlstd{x}
+\end{alltt}
+\begin{verbatim}
+[1] 74
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Maintenant on peut faire des calculs avec cette variable:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlnum{3}\hlopt{*}\hlstd{x}
+\end{alltt}
+\begin{verbatim}
+[1] 222
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+On change la valeur de \texttt{x}, en lui affectant une nouvelle valeur:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlstd{x} \hlkwb{<-} \hlstd{x}\hlopt{+}\hlnum{6}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+On vérifie que la valeur de \texttt{x} a bien changée:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlstd{x}
+\end{alltt}
+\begin{verbatim}
+[1] 80
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Le symbole pour assigner une valeur est soit \texttt{<-} soit \texttt{=} Exemple:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlstd{y} \hlkwb{=} \hlnum{17}
+\hlstd{> }\hlstd{y}
+\end{alltt}
+\begin{verbatim}
+[1] 17
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Pour les  noms d'objet vous avez le droit d'être créatif! En fait, les noms comme \texttt{x, y, z} sont de très mauvais exemples. Il vaut mieux utiliser des noms parlants. Si les noms de variables sont bien choisis, les commentaires deviennent presque superflus pour expliquer le code. Voyez l'exemple suivant:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlstd{poids} \hlkwb{<-} \hlnum{52}
+\hlstd{> }\hlstd{taille} \hlkwb{<-} \hlnum{1.65}
+\hlstd{> }\hlstd{IMC} \hlkwb{<-} \hlstd{poids}\hlopt{/}\hlstd{taille}\hlopt{^}\hlnum{2}
+\hlstd{> }\hlstd{IMC}
+\end{alltt}
+\begin{verbatim}
+[1] 19.10009
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Un nom de variable admissible sous \texttt{R} doit commencer par une lettre. Il peut aussi inclure des chiffres ou les caractères {\bf .} et {\bf \_}
+
+
+\subsubsection{Supprimer des objets}
+L'{\bf environnement de travail} (ou {\it work space} en anglais) est une sorte d'espace de stockage d'objets \texttt{R} créés lors d'une session, c'est-à-dire c'est   la liste d'objets actuellement connus par \texttt{R}.
+Pour connaître tous les objets créés depuis le début de la session, on utilise la commande
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{ls}\hlstd{()}
+\end{alltt}
+\begin{verbatim}
+[1] "IMC"    "poids"  "taille" "x"      "y"     
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Pour en supprimer par exemple l'objet \texttt{x}, on tape
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{rm}\hlstd{(x)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+et on vérifie que \texttt{x} a bien disparu de l'environnement de travail:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{ls}\hlstd{()}
+\end{alltt}
+\begin{verbatim}
+[1] "IMC"    "poids"  "taille" "y"     
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+Afin de supprimer tous les objets d'un seul coup, on écrit
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.901,0.901,0.901}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{> }\hlkwd{rm}\hlstd{(}\hlkwc{list}\hlstd{=}\hlkwd{ls}\hlstd{())}
+\hlstd{> }\hlkwd{ls}\hlstd{()}
+\end{alltt}
+\begin{verbatim}
+character(0)
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+\subsubsection{Quitter \texttt{RStudio}}
+\`A la fermeture de  \texttt{RStudio}, le logiciel vous propose de sauvegarder une image de la session, ce qui permet d'enregistrer l'ensemble d'objets créés lors de cette session, ou plus précisément d'objets actuellement dans l'environnement de travail. On peut les charger dans une session ultérieure pour reprendre son travail au même endroit.
+
+
+ \subsubsection*{Notebook n°1}
+Maintenant vous devez travailler le Notebook n°1. Les notebooks contiennent également des explications importantes sur le logiciel \texttt{R}  ainsi que les exercices à faire avec \texttt{RStudio}.
+
+
+\end{document}

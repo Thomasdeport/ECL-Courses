@@ -1,0 +1,293 @@
+---
+title: "ExempleGLM"
+author: "Maud Thomas"
+date: "2023-03-19"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Notebook : exemple GLM
+
+On considère le jeu de données suivant
+(<http://www.statsci.org/data/general/carinsuk.html>). Il présente le
+nombre de sinistres et le coût moyen des sinistres en Grande-Bretagne en
+1975. Il contient 128 assurés et trois variables explicatives : - l'âge
+du conducteur : réparti en 8 classes 17-20 ; 21-24 ; 25-29 ; 30-34 ;
+35-39 ; 40-49 ; 50-59 ; 60+ - le modèle de la voiture : réparti en 4
+classes A ; B ; C ; D - l'âge de la voiture : réparti en 4 classes 0-3 ;
+4-7; 8-9 ; 10+
+
+## GLM Poisson
+
+On souhaite étudier le nombre de sinistres en fonction des ces trois
+variables explicatives. On note - $Y_i$ le nombre de sinistres de
+l'individu $i$ - $X_{i,1}$ son âge, $X_{i,2}$ le modèle de sa voiture et
+$X_{i,3}$ l'âge de sa voiture.
+
+On choisit donc un GLM Poisson ce qui signifie que l'on suppose -
+$Y_i \mid X_i \sim \text{ Poisson}$ -
+$\log(\mathbb{E}[Y_i \mid X_i]) = X_i' \beta$
+
+```{r}
+UKAuto <- read.table("UKAuto.txt", header = T)
+head(UKAuto)
+str(UKAuto)
+```
+
+Les variables sont de type `character`, transformons donc les en type
+`factor`.
+
+```{r}
+UKAuto$OwnerAge <- as.factor(UKAuto$OwnerAge)
+UKAuto$Model <- as.factor(UKAuto$Model)
+UKAuto$CarAge <- as.factor(UKAuto$CarAge)
+
+levels(UKAuto$OwnerAge) 
+levels(UKAuto$Model) 
+levels(UKAuto$CarAge)
+table(UKAuto[,c(2,3)])
+
+```
+
+Regardons la distribution de nla variable d'intérêt
+
+```{r}
+summary(UKAuto$AvCost)
+```
+
+```{r}
+fit <- glm(formula = NClaims ~ OwnerAge + Model + CarAge, data = UKAuto, family = poisson())
+summary(fit)
+```
+
+-   **Deviance residuals** : donne quelques indicateurs de la
+    distribution des résidus de la déviance ;
+-   **Coefficients** : L'intercept correspond à la moyenne globale du
+    modèle. Vous pouvez remarquer que pour chaque variable il manque à
+    chaque fois une classe. En effet, les classes manquantes sont
+    considérées comme des classes de référence et leur coefficient
+    $\beta_k$ associé est nul. Les coefficients donnés pour les autres
+    classes représentent l'écart à la classe de référence. R nous donne
+    également les standard errors et les p-values pour chaque classe ;
+    **Attention !** tous ces résultats dépendent des classes de
+    référence.
+-   **Null deviance** = Déviance du modèle qui ne contient que la
+    constante : un seul paramètre pour toutes les données (127 dl =
+    128-1)
+-   **Residual deviance** = Déviance du modèle considéré (114 dl =
+    128-14)
+-   **AIC** = 2 nb de paramètres - 2 log vraisemblance
+-   **Number of Fisher Scoring iterations** : Nombre d'itérations de
+    l'algorithme de Fisher scoring
+
+Nous pouvons réaliser un test de rapport de vraisemblance pour savoir si
+notre modèle ajuste bien les données
+
+```{r}
+907.71 > qchisq(p = 0.95, df = 114) #comparison de la déviance au quantile d'ordre 0.95 de la loi Chi2 à 114 degrés de liberté 
+pchisq(907.71, df = 114, lower.tail = F) #calcul de la p-valeur 
+```
+
+La déviance est supérieure au quantile de la loi du chi2 et la p-valeur
+est très petite, on rejette donc l'hypothèse que selon laquelle notre
+modèle est suffisant pour expliquer la variabilité des données, ce qui
+suggère que le modèle n'ajuste pas bien les données.
+
+Réalisons maintenant une sélection de variables. Une première façon de
+faire est grâce à une analyse de la déviance ce qui correspond à des
+tests de rapport de vraisemblance de modèles emboîtés
+
+```{r}
+anova(fit, test = "Chisq")
+```
+
+## Interprétation Analyse de la déviance
+
+La table de l'analyse de déviance permet de faire de la sélection de
+modèles. A chaque ligne, on ajotue la variable de la première colonne à
+celles au-dessus. Par exemple, la deuxième ligne correspondant au modèle
+contenant la constante et la variable **OwnerAge** ; - La colonne **df**
+correspond au nombre de modalités de la variable considérée ; - La
+colonne **Deviance** donne la différence entre la Resid.Dev du modèle de
+la ligne correspondante et la Resid.Dev du modèle de la ligne au-dessus
+; - La colonne **Resid. Df** correspond au nombre de données moins le
+nombre de paramètres (soit $n-p$) ; - La colonne **Resid. Dev** donne la
+déviance du modèle contenant toutes les variables des lignes au-desusu
+de la ligne considérée. - La colonne **Pr(\>Chi)** donne la p-value du
+test du rapport de vraisemblance. La valeur de la statistique de test
+est donnée par la colonne **Resid. Dev** et le nombre de degré de
+liberté par la colonne **Resid. Df**.
+
+Ce tableau réalise une sélection ascendante, il ne permet pas de
+vérifier directement la significativité de chaque variable. Pour cela,
+on peut utiliser la fonction **Anova** du package **car**
+
+```{r}
+library(car)
+Anova(fit, test.statistic = "LR", type = 3)
+```
+
+Il est aussi possible d'utiliser la fonction `step` pour faire une
+sélection avec le critère AIC
+
+```{r}
+step(object = fit)
+```
+
+# GLM Gamma
+
+On souhaite étudier le montant moyen de sinistres en fonction des ces
+trois variables explicatives. On note - $Y_i$ le montant moyen des
+sinistres de l'assuré $i$ - $X_{i,1}$ son âge, $X_{i,2}$ le modèle de sa
+voiture et $X_{i,3}$ l'âge de sa voiture.
+
+On choisit donc un GLM Gamma ce qui signifie que l'on suppose -
+$Y_i \mid X_i \sim \text{gamma}$ -
+$1/\mathbb{E}[Y_i \mid X_i] = X_i' \beta$
+
+```{r}
+fit2 <- glm(formula = AvCost~OwnerAge+Model+CarAge, data = UKAuto, family = Gamma(link = log))
+summary(fit2)
+```
+
+Regardons le test de la déviance
+
+```{r}
+11.511 > qchisq(p = 0.95, df = 109)
+pchisq(11.511, df = 109, lower.tail = F)
+```
+
+Ici, on conserve l'hypothyèse nulle, donc notre modèle semble suffisant
+pour expliquer la variabilité des données.
+
+```{r}
+anova(fit2, test = "Chisq")
+Anova(fit2, test.statistic = "LR", type = 3)
+step(fit2)
+```
+
+## Exercice
+
+C'est maintenant à vous de jouer. Essayez de faire la même chose avec
+l'ensemble de données `dataOhlsson` du package `insuranceData`.
+(Installer le package avec la commande
+`install.packages('insuranceData')`)
+
+```{r}
+library(insuranceData)
+data("dataOhlsson")
+```
+
+```{r}
+head(dataOhlsson)
+str(dataOhlsson)
+```
+
+```{r}
+sapply(dataOhlsson,  function(x) length(unique(x)))  
+
+```
+
+```{r}
+
+dataOhlsson <- subset(dataOhlsson, duration != 0)
+
+dataOhlsson$kon <- as.factor(dataOhlsson$kon)
+dataOhlsson$zon <- as.factor(dataOhlsson$zon)
+dataOhlsson$mcklass <- as.factor(dataOhlsson$mcklass)
+dataOhlsson$bonuskl <- as.factor(dataOhlsson$bonuskl)
+
+levels(dataOhlsson$kon) 
+levels(dataOhlsson$zon) 
+levels(dataOhlsson$mcklass)
+levels(dataOhlsson$bonuskl)
+```
+
+```{r}
+summary(dataOhlsson$antskad)
+plot(dataOhlsson$antskad)
+ggplot(dataOhlsson, aes(x = antskad)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Histogramme de antskad", x = "Valeur", y = "Fréquence")
+```
+
+```{r}
+summary(dataOhlsson$skadkost)
+library(ggplot2)
+ggplot(dataOhlsson, aes(x = skadkost)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Histogramme de skadkost", x = "Valeur", y = "Fréquence")
+
+
+```
+
+```{r}
+summary(dataOhlsson$duration)
+library(ggplot2)
+
+ggplot(dataOhlsson, aes(x = duration)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Histogramme de duration", x = "Valeur", y = "Fréquence")
+```
+
+```{r}
+
+dataOhlsson_cost <- subset(dataOhlsson, skadkost != 0)
+
+fit_ohlson_skadkost<- glm(
+  formula = skadkost ~ kon + zon + bonuskl + duration,
+  data = dataOhlsson_cost,
+  family = Gamma('log'),
+)
+summary(fit_ohlson_skadkost)
+```
+
+On peut faire un test du rapport de vraissemblance :
+
+```{r}
+1306.2>qchisq(p = 0.95, df = 645)
+pchisq(1306.2, df = 645, lower.tail = F)
+
+```
+
+```{r}
+# Vérifier les résidus
+residuals(fit_ohlson_skadkost)
+
+# Vérifier la déviance
+deviance(fit_ohlson_skadkost)
+
+```
+
+```{r}
+library(car)
+step(object = fit_ohlson_skadkost)
+```
+
+```         
+```
+
+```{r}
+library(car)
+Anova(fit, test.statistic = "LR", type = 3)
+```
+
+```{r}
+fit_ohlson_st<- glm(
+  formula = antskad ~ kon + zon + mcklass + bonuskl + duration,
+  data = dataOhlsson,
+  family = poisson()  
+)
+summary(fit_ohlson_skadkost)
+```
+
+```{r}
+1392>qchisq(p = 0.95, df = 659)
+pchisq(1392, df = 659, lower.tail = F) #calcul de la p-valeur 
+anova(fit_ohlson_skadkost, test = "Chisq")
+```

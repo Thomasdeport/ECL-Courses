@@ -1,0 +1,67 @@
+
+```{r}
+df_silicium = read.table(file = "silicium.txt", header = TRUE, dec=",", sep = "\t")
+head(df_silicium)
+```
+Question 1
+Il y a 6 facteurs et nous disposons de 64 expériences : le plan est complet.
+Vérifions que ce plan est bien orthogonal:
+```{r}
+px <- df_silicium[, -grep("Camber", names(df_silicium))]
+px_t <- as.data.frame(t(px))
+Product <- data.matrix(px_t) %*% data.matrix(px)
+Product
+```
+On voit que le plan est orthogonal. Ce plan permet donc d'estimer tous les effets principaux sans confusion. On pourra estimer tous les effets d'interractions sauf le dernier car une des expériences nous est nécessaire à l'estimation de la variance.
+Construction du plan : Pour chacune des lignes du plan, -1 correspond au niveau le plus bas du facteur et 1 au niveau le plus haut.
+
+Question 2)
+```{r}
+mod = lm(Camber~., data = df_silicium)
+summary(mod)
+```
+Interprétation : Test globalement significatif (p-value test de Fisher<0.05). R2 = 0.6975 => Environ 70% de la variance de la variable Camber est expliquée par les facteurs.
+Les facteurs influents sont Ltemp, Lpress, Ctime et Catmos (confiance à 99%, p-value<0.01). Test backward donne les mêmes resultats
+
+Question 3)
+```{r}
+predictions <- predict(mod)
+residuals <- df_silicium$Camber - predictions
+RSE = sqrt(sum((residuals - mean(residuals))^2)/(nrow(df_silicium) - ncol(df_silicium)))
+RSE
+```
+Question 4)
+
+```{r}
+mod_opti = lm(Camber~Ltemp+Lpress+Ctime+Catmos, data = df_silicium)
+summary(mod_opti)
+```
+Comme le plan est orthogonal, la valeur des coefficients ne change pas lorsque l'on supprime des variables (aucune correlation dans l'estimation des betas).
+
+Question 5)
+Pour minimiser la cambrure, il faut distinguer les variables qui ont un coefficient positif de celles qui ont un coefficient négatif. Coeff positif : on prend la valeur minimale de la variable. Coeff négatif : on prend la valeur maximale de la variable. Pour les variables non influentes, on prend la valeur moyenne. Cela donne : 
+Ltime = 17.5s
+Ltemp = 55°C
+Lpress = 5bars
+Ctemp = 1600°C
+Ctime = 29s
+Catmos = 26°C
+
+
+Intervale de confiance à 95% de la valeur moyenne de la cambrure
+```{r}
+nouvel_individu = data.frame(Ltemp=-1, Lpress=-1, Ctime=1, Catmos=1)
+prediction_IC = data.frame(predict(mod_opti, newdata = nouvel_individu, interval = 'confidence', level = 0.95))
+prediction_IC
+```
+
+Le coefficient associé à Ltemp étant 19.453, si Ltemp augmente de 5°C, la cambrure augmente de 5*19.453 = 97.265
+
+Question 6)
+
+
+
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

@@ -1,0 +1,67 @@
+Question 1)
+
+```{r}
+df_neur = read.table(file = "neuralgia.txt", header = TRUE, dec=",", sep = "\t")
+summary(df_neur)
+```
+
+```{r}
+df_neur$Treatment=as.factor(df_neur$Treatment)
+df_neur$Sex=as.factor(df_neur$Sex)
+
+```
+
+Question 2)
+```{r}
+u = sample(1 : nrow(df_neur), nrow(df_neur)*0.8)
+df_train = df_neur[u,]
+df_test = df_neur[-u,]
+df_test
+```
+Question 3)
+```{r}
+mod_logit=glm(Pain~., family=binomial(link="logit"),data=df_train)
+summary(mod_logit)
+```
+Question 4)
+```{r}
+library(car)
+Anova(mod_logit, type = 'III', test.statistic ='LR')
+```
+
+```{r}
+Anova(mod_logit, type = 'III', test.statistic = 'Wald')
+```
+
+```{r}
+anova(mod_logit, test ='Chisq')
+```
+On améliore le modele via une méthode backward
+```{r}
+backward <- step(mod_logit,method = "backward",k= 2)
+backward$anova
+Anova(backward,test.statistic="LR",type = "III")
+```
+
+Question 5)
+```{r}
+constant = glm(Pain~1,family=binomial,data=df_train)
+forward <- step(constant, direction="forward", scope=list(lower=~1, upper=~(Treatment+Sex+Age+Duration)),trace = TRUE)
+forward$anova
+Anova(forward,test.statistic="LR",type = 'III')
+```
+Question 6)
+Confusion modèle forward
+```{r}
+predicted_probabilities_forward <- exp(predict(forward, newdata = df_test))/(1+exp(predict(forward, newdata = df_test)))
+confusion_matrix_forward <- table(Predicted = predicted_probabilities_forward>0.5, Actual = df_test$Pain)
+confusion_matrix_forward
+```
+Confusion modèle backward
+```{r}
+predicted_probabilities_backward <- exp(predict(backward, newdata = df_test))/(1+exp(predict(backward, newdata = df_test)))
+confusion_matrix_backward <- table(Predicted = predicted_probabilities_backward>0.5, Actual = df_test$Pain)
+confusion_matrix_backward
+```
+
+

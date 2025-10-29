@@ -1,0 +1,78 @@
+Question 1)
+
+```{r}
+tuyns_data = read.table(file = "Tuyns.txt", header = TRUE, sep = " ")
+summary(tuyns_data)
+```
+
+Interprétation du coefficient alpha: 
+
+```{r}
+# Ajuster le modèle sans covariables
+mod_null <- glm(cancer ~ 1, data = tuyns_data, family = binomial(link ="logit"))
+
+# Résumé du modèle
+summary(mod_null)
+```
+La valeur α correspond au logarithme du rapport P(y=1)/P(y=0). 
+Interprétation :Cette valeur donne une information sur la proportion de la population atteinte d'un cancer : si α est positif, alors il y a plus de personnes atteintes que de personnes saines et inversement. 
+Mise en oeuvre : α correspond à l'intercept qui vaut -0.45426 (coefficient négatif) et qui a une p-value de 5.06e-07 < 0.05 : coefficient significatif. Le signe négatif indique qu'il y a moins de personnes atteintes d'un cancer que de personnes saines. La p-value très faible indique que l'hypothèse α = 0 est rejetée : la probabilité d'avoir un cancer est différente de la probabilité d'être sain.
+
+Question 2) 
+Pour comptabiliser la significativité de TAB,  on va considérer TAB comme catégorielle 
+```{r}
+# Ajuster le modèle avec TAB comme covariable
+mod_tab <- glm(cancer ~ as.factor(TAB), data = tuyns_data, family = binomial)
+
+# Résumé du modèle
+summary(mod_tab)
+
+# Analyse de la variance
+anova(mod_tab, test = "Chisq")
+
+```
+Equation : log(p / (1 - p)) = α + β1 * (TAB == 2) + β2 * (TAB == 3) + β3 * (TAB == 4)
+Anova : 
+L’intercept vaut -1.3591 et correspond à l'impact de ne pas fumer sur la probabilité d'avoir un cancer (TAB1). Le signe est négatif ce qui signifie que ne pas fumer est un facteur protecteur.
+On remarque que tous les autres TABi sont significatifs et positifs : ils sont agravants par rapport au facteur TAB1.
+
+-> Ces résultats signifient qu’une consommation de tabac plus élevée est associée à un risque de cancer accru, chaque niveau étant hautement significatif (p < 0,001).
+
+
+Qualité d'ajustement :
+-> La réduction de déviance (de 688.04 à 651.50) et l'AIC plus faible (659.5) confirment que TAB améliore significativement le modèle par rapport à un modèle sans covariables.
+
+Summary : 
+On a juste l'info que le facteur TAB est significatif et globalement agravant mais on n'a pas le détail fourni par Anova.
+
+Question 3) 
+```{r}
+mod_alc <- glm(cancer ~ as.factor(ALC), data = tuyns_data, family = binomial)
+summary(mod_alc)
+anova(mod_alc, test = "Chisq")
+```
+Intercept : 
+-> L’intercept de -1.3591
+->les individus consommant moins de 40 g d’alcool par jour (ALC = 1)
+->probabilité de cancer de près de 20%.
+Effet de ALC :
+-> ALC = 2 (0.9414), ALC = 3 (0.9945), et ALC = 4 (1.6274) 
+-> augmentation significative du log-odds de cancer
+->suggére que la consommation d'alcool plus élevée est associée à un risque accru.
+
+Ces coefficients sont tous statistiquement significatifs (p < 0,001), confirmant l'effet de ALC sur le risque de cancer.
+
+Qualité d’ajustement :
+-> réduction de déviance de 688.04 à 650.84 (p < 0,001) +  diminution de l'AIC à 658.84 
+-> montre que ALC améliore significativement le modèle.
+
+On remarque que l'AIC et la réduction de déviance sont légérement meilleure pour l'alcool, combinons les deux facteurs pour conclure : 
+
+
+```{r}
+mod_null <- glm(cancer ~ 1, data = tuyns_data, family = binomial(link ="logit"))
+forward <- step(mod_null, direction="forward", scope=list(lower=~1, upper=~(as.factor(ALC)+as.factor(TAB))),trace = TRUE)
+forward$anova
+Anova(forward,test.statistic="LR",type = 'III')
+```
+Donc on peut rajouter les deux variables caractérielles ALC et TAB pour avoir le modèle le plus performant d'après la méthode forward. 

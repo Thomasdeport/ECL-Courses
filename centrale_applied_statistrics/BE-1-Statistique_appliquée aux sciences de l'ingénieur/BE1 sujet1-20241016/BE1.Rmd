@@ -1,0 +1,283 @@
+---
+title: "BE1 Notebook"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6, fig.height = 6)
+```
+
+Exercice 1 \## On commence par lire et visualiser les données du fichier
+
+```{r}
+PH = read.table(file = "ph.txt", header = TRUE, dec=",", sep = "\t")
+pairs(PH)
+```
+
+1)a)
+
+```{r}
+mod = lm(pHcalc_insitu~days, data = PH)
+plot(pHcalc_insitu~days, data = PH)
+abline(mod$coefficients, col = 'red')
+```
+
+1)b)
+
+```{r}
+summary(mod)
+```
+
+Le modèle est globalement significatif (IC de 99%) d'après le test de
+Fisher : p-value\<0.01 Le pourcentage de la variance expliquée par le
+modèle correspond au R-squared : le modèle permet d'expliquer 55% de la
+variance du PH
+
+1)c) On teste l'hypothèse nulle suivante : $\beta_{1} = 0$ où
+\$\beta\_{1} \$ représente le coefficient associé au facteur "days". Si
+ce coefficient est nul (si HO vérifiée), cela signifie que la variable
+days n'a pas d'impact significatif sur le PH. H1 = $\beta_{1} \neq 0$
+
+Sous H0,
+$T = \frac{b_{1}{\hat{\sigma} \sqrt{\left[(t_{XX})^{-1} \right]}$ suit
+une loi de student à 297 degrés de liberté. D'après le summary, sa
+statistique de test est -19.05, et sa p-value \<2e-16. Donc, pour un
+intervale de confiance à 1%, la variable days est significative
+(p-value\<0.01)
+
+2)  
+
+```{r}
+nouvel_individu = data.frame(days = 19000)
+prediction = predict(mod, newdata = nouvel_individu)
+prediction
+```
+
+Intervale de confiance de la valeur moyenne de la prédiction:
+
+```{r}
+prediction_IC = data.frame(predict(mod, newdata = nouvel_individu, interval = 'confidence', level = 0.95))
+prediction_IC
+
+```
+
+Donc, d'après ce modèle, le PH moyen prévu en 2050 est de 8.022966 et
+sera compris entre 8.016103 et 8.029829 avec une confiance de 95%.
+
+3)  
+
+```{r}
+prediction_IP = data.frame(predict(mod, newdata = nouvel_individu, interval = 'prediction', level = 0.95))
+prediction_IP
+```
+
+Nous ne pouvons donc pas affirmer, avec une confiance de 95%, que le PH
+en 2050 sera supérieur à 8 car l'intervale de prédiction à 95% est :
+[7.995358, 8.050575 ]. Bilan 2) et 3) : Cela signifie qu'en moyenne, le
+PH mesuré en 2050 sera supérieur à 8%, mais qu'il existe des
+observations pour lequelles le PH sera inférieur à 8% (le tout pour une
+confiance de 95%)
+
+4)  On observe que les résidus sont répartis uniformément en fonction du
+    PH. On observe trois résidus positifs importants pour des valeurs de
+    PH supérieures à 8.08, mais aucune tendance claire se dessine : les
+    résidus sont acceptables.
+
+```{r}
+par(mfrow=c(2,2))
+plot(mod)
+```
+
+5)  On reprend un raisonnement similaire avec la variable "temp". On
+    trace la droite de regression, on y décerne une légère tendance
+    positive. Nous allons ensuite tester si cette tendance est
+    significative pour une confiance de 95%.
+
+```{r}
+mod2 = lm(temp~days, data = PH)
+plot(temp~days, data = PH)
+abline(mod2$coefficients, col = 'red')
+```
+
+```{r}
+summary(mod2)
+```
+
+La modèle n'est globalement pas significatif (IC à 95%) car la p-value
+du test de Fisher est supérieure à 0.05: l'association entre les dates
+et la température de l'océan, telle qu'estimée par le modèle de
+régression, n'est pas significativement différente de zéro. Cela ne
+signifie pas forcément que le date n'a pas d'impact, mais qu'il faudrait
+peut être ajouter d'autres variables explicative ou augmenter le nombre
+de données.
+
+Exercice 2
+
+```{r}
+Housing = read.table(file = "housing_new.txt",sep = "\t", dec = '.',header = TRUE)
+head(Housing)
+```
+
+```{r}
+pairs(Housing)
+```
+
+```{r}
+mod1 = lm(class ~ ., data = Housing)
+summary(mod1)
+par(mfrow=c(2,2))
+plot(mod1)
+```
+
+1/ La part de variance expliquée par ce modèle est le "Multiple
+R-squared: 0.7343" 2/ Hypothèse : H₀ : "Tous les coefficients de
+régression sont égaux à zéro. Autrement dit, aucune des variables
+explicatives (indépendantes) n'a un effet significatif sur la variable
+dépendante, et le modèle de régression ne fournit pas une meilleure
+explication des variations de la variable cible que le modèle sans
+variable explicative (modèle "intercept seul")." Statistique du test :
+la statistique F : "F-statistic: 113.5 on 12 and 493 DF" -\> Statistique
+F : 113.5 Degrés de liberté : Numérateur (df1) : 12 (nombre de
+prédicteurs dans le modèle) Dénominateur (df2) : 493 (degrés de liberté
+résiduel, soit le nombre total d'observations moins le nombre de
+paramètres estimés) La statistique F suit une loi de Fisher avec les
+degrés de liberté donnés : F∼F(12,493)
+
+```{r}
+# Calculer la p-value associée à la statistique F
+F_stat <- 113.5
+df1 <- 12
+df2 <- 493
+
+# Calculer la p-value
+p_value <- pf(F_stat, df1, df2, lower.tail = FALSE)
+p_value
+```
+
+On a une p-value = 2.39043e-133,la p-value est très inférieure à 0.01
+(risque de première espèce de 1%), cela signifie que nous rejetons H₀,
+et le modèle est considéré comme significatif.
+
+3/i) On regarde dans summary(mod1) quels sont les paramètres pour
+lesquels la p-value est inférieure à 1 %, ceux-ci correspondent aux
+paramètres significatif, on en déduit que les paramètres significatifs
+pour alpha = 0.01 sont: " CRIM", "ZN","CHAS",
+"NOX","RM","DIS","RAD","TAX","PTRATIO" et "LSTAT" Les coefficients non
+significatif sur ce alpha sont: "INDUS" et "AGE", il peut cependant
+exister des effet de correlation entre les deux variables, pour
+simplifier le modèle il sera donc important de vérifier les résultats
+obtenu en l'absence de l'une au l'autre de ces variables On refait des
+test backward avec tout les 3/ii) Existe t'il d'autres paramètres
+significatifs ? Si on a inclus toutes les variables pertinentes dans le
+modèle, et que les p-values des autres variables sont toutes \> 0.01,
+cela suggère qu’il n’y a pas d’autres variables significatives à ce
+niveau de risque. Si on a des variables potentiellement importantes qui
+n'ont pas été incluses dans le modèle, il est possible qu'elles aient un
+effet significatif. Cela peut conduire à une situation de biais de
+spécification.
+
+4/ Pour valider les hypothèses de la question précédente on va utliser
+la méthode backward en enlevant progressivement les variables en
+vérifiant qu'il n'y a pas de relation linéaire ou d'autres sortes entre
+les paramètres non-significatifs :
+
+```{r}
+new_housing_without_indus = subset(Housing, select = -c(3))
+new_housing_without_age = subset(Housing, select = -c(7))
+new_housing_without_both = subset(Housing, select = -c(3,7))
+```
+
+```{r}
+mod2 = lm(class ~ ., data = new_housing_without_indus)
+summary(mod2)
+par(mfrow=c(2,2))
+plot(mod2)
+```
+
+```{r}
+mod3 = lm(class ~ ., data = new_housing_without_age)
+summary(mod3)
+par(mfrow=c(2,2))
+plot(mod3)
+```
+
+```{r}
+mod4 = lm(class ~ ., data = new_housing_without_both)
+summary(mod4)
+par(mfrow=c(2,2))
+plot(mod4)
+```
+
+5/ On remarque qu'il y a toujours des effets de correlation mais ceux ci
+sont faibles. Et lorsque l'on supprime l'un des deux paramètres les
+autres restent non-significatifs. Le modèle obtenu est satisfaisant, les
+p-value sont faibles pour chaque résidu et on a bien une p-value faible
+pour le modèle et le R carré ajusté a augmenté tandis que le R carré a
+légérement diminué.
+
+On peut utiliser le critère de Bayes pour selectionner le meilleur des
+modèles défini précédemment :
+
+```{r}
+# Calcul du BIC pour ce modèle
+bic_modele1 <- BIC(mod1)
+bic_modele2 <- BIC(mod2)
+bic_modele3 <- BIC(mod3)
+bic_modele4 <- BIC(mod4)
+print(c(bic_modele1, bic_modele2,bic_modele3,bic_modele4))
+```
+
+Le BIC est le meilleur pour le modèle 4 c'est donc le meilleur
+ici(meilleur compromis entre ajustement et complexité).
+
+6/ Pour améliorer le modèle linéaire initial, nous avons introduit des
+interactions entre certaines variables ainsi que des termes quadratiques
+afin de capturer des relations plus complexes et non linéaires entre les
+prédicteurs. En particulier, nous avons sélectionné les interactions
+entre `RM` (nombre moyen de pièces) et `LSTAT` (pourcentage de
+population à faible statut économique), `NOX` (concentration en oxyde
+nitreux) et `DIS` (distance aux centres d'emploi), ainsi que `PTRATIO`
+(ratio élèves/enseignant) et `LSTAT`. Ces variables ont été choisies car
+elles sont susceptibles d’avoir des effets combinés sur le prix des
+logements, notamment en lien avec la qualité de vie, l'accès aux
+services et l'influence de la composition socio-économique des
+quartiers. De plus, des termes quadratiques pour `RM` et `LSTAT` ont été
+ajoutés pour explorer des effets potentiellement non linéaires, où
+l'impact marginal de ces variables pourrait changer à des niveaux
+extrêmes. Ces ajustements permettent d'améliorer la précision du modèle
+en capturant des dynamiques plus complexes entre les facteurs
+influençant le marché immobilier:
+
+```{r}
+# Ajout des combinaisons linéaires et des termes quadratiques
+Housing$RM_LSTAT = Housing$RM * Housing$LSTAT  
+Housing$PTRATIO_LSTAT = Housing$PTRATIO * Housing$LSTAT  
+Housing$RM_squared = Housing$RM^2  
+Housing$LSTAT_squared = Housing$LSTAT^2
+Housing$NOX_DIS <- Housing$NOX * Housing$DIS
+
+# Definition du modèle
+best_mod =  lm(class ~ CRIM + ZN + CHAS + NOX + RM + DIS + RAD + TAX + PTRATIO + LSTAT +
+                      RM_LSTAT + NOX_DIS + PTRATIO_LSTAT + RM_squared + LSTAT_squared, data = Housing)
+
+summary(best_mod)
+```
+
+```{r}
+# Calcul du BIC pour ce modèle
+bic_best_model <- BIC(best_mod)
+print(c(bic_best_model))
+```
+
+Les résultats pour la perte de Bayes est plus faible, le Multiple
+R-squared: 0.8173 et le Adjusted R-squared: 0.8117 sont plus faibles :
+la part de variance estimée par le modèle est donc meilleure.\
+Remarque : Une option si on veut continuer l'optimisation de ce modèle,
+on peut essayer de supprimer par une méthode Backward en supprimant
+petit à petit les variables et en observant qu la valeurs de certaines
+p-value ne décole pas.

@@ -1,0 +1,561 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Fonctions utiles
+```{r}
+gauss_cov <- function(x1, x2, theta)
+{
+  d = dim(x1)
+  cov = 1
+  for (i in 1:d[2]) {cov = cov * exp(-1/2*((x1[i]-x2[i])/theta[i])^2) }
+  return(cov)
+}
+  
+exp_cov <- function(x1, x2, theta)
+{
+  d = dim(x1)
+  cov = 1
+  for (i in 1:d[2]) {cov = cov * exp(-abs(x1[i]-x2[i])/theta[i]) }
+  return(cov)
+}
+
+matern_cov <- function(x1, x2, theta)
+{
+  d = dim(x1)
+  cov = 1
+  for (i in 1:d[2]) {cov = cov * ((1+sqrt(3)*abs(x1[i]-x2[i])/theta[i])*exp(-sqrt(3)*abs(x1[i]-x2[i])/theta[i]) )}
+  return(cov)
+}
+
+process_gaussien <- function(m,theta,n,sigma2)
+{
+  x <- matrix(seq(0, 1, length.out = n),n,1)
+  cov_matrix <- matrix(0, n, n)
+  for (i in 1:n){
+    for (j in 1:n){
+      cov_matrix[i,j] = sigma2 * matern_cov(matrix(x[i],1,1),matrix(x[j],1,1),theta)
+    }
+  }
+  
+  C <- chol(cov_matrix)
+  eps <- matrix(rnorm(n,0 ,1),n,1) 
+  X = matrix(m,n,1) + C%*%eps
+  return(X)
+}
+
+esperence_variance <- function(m,theta,N_pt,x_points,y_points,x_obs)
+{
+cov_matrix <- matrix(0, N_pt, N_pt)
+r = matrix(0,1,N_pt)
+  for (i in 1:N_pt){
+    for (j in 1:N_pt){
+      cov_matrix[i,j] = matern_cov(matrix(x_points[i],1,1),matrix(x_points[j],1,1),theta)
+    }
+    r[i] = matern_cov(matrix(x_obs,1,1),matrix(x_points[i],1,1),theta)
+  }
+
+
+E = m +  r%*%solve(cov_matrix , t((y_points - matrix(m,1,N_pt))) ) 
+var = sigma2 * (1 - r%*%solve(cov_matrix , t((r)) )) 
+return(list( E[[1]] , var[[1]]))
+}
+
+
+R_matrix <- function(theta,N_pt,x_points)
+{
+cov_matrix <- matrix(0, N_pt, N_pt)
+  for (i in 1:N_pt){
+    for (j in 1:N_pt){
+      cov_matrix[i,j] = matern_cov(matrix(x_points[i],1,1),matrix(x_points[j],1,1),theta)
+    }
+  }
+return(cov_matrix)
+}
+
+
+kriging <- function(Y,indices,m,theta,n,sigma2){
+  x = matrix(seq(0, 1, length.out = n),n,1)
+  N_pt = length(indices)
+  x_points <- x[indices]
+  y_points <- Y[indices]
+ 
+  Y_chap = matrix(0,n,1)
+  #Sigma_chap = matrix(0,n,1)
+  for (i in 1:n){
+    Y_chap[i] = esperence_variance(m,theta,N_pt,x_points,y_points,x[i])[[1]]
+    #Sigma_chap[i] = esperence_variance(m,theta,N_pt,x_points,y_points,x[i])[[2]]
+  }
+  return(Y_chap)
+}
+
+conditional_simulation <- function(Y_chap,indices,m,theta,n,sigma2){
+  Y_simul = process_gaussien(m,theta,n,sigma2) #compute simulation non condi
+  Y_simul_chap = kriging(Y_simul,indices,m,theta,n,sigma2) #compute kriging
+  Y_condit_simul = Y_chap + Y_simul -Y_simul_chap #extract the residuals and add it to Y_chap
+  return (Y_condit_simul)
+}
+
+```
+
+# 1 - Empirical Variogram
+
+
+```{r}
+m <- 0.1
+theta <- 0.03
+n <- 301
+sigma2 <- 1
+set.seed(800) 
+x = matrix(seq(0, 1, length.out = n),n,1)
+Y = process_gaussien(m,theta,n,sigma2)
+plot(x, Y, type = "l", col = "blue" )
+```
+
+```{r}
+N_pt = n/2
+indices <- sample(1:n, N_pt)
+x_selected = x[indices]
+Y_selected = Y[indices]
+
+
+compute_empirical_variogram <- function(x, y) {
+  n <- length(y)
+  lags <- abs(outer(x, x, "-"))  # Distances absolues entre les points
+  variogram_matrix <- outer(y, y, function(yi, yj) (yi - yj)^2) / 2
+  lags <- lags[lower.tri(lags)]
+  variogram_values <- variogram_matrix[lower.tri(variogram_matrix)]
+
+  variogram_df <- data.frame(lag = lags, gamma = variogram_values)
+  
+  smooth_variogram <- aggregate(gamma ~ lag, data = variogram_df, FUN = mean)
+  smooth_variogram <- smooth_variogram[order(smooth_variogram$lag), ]
+  
+  loess_model <- loess(gamma ~ lag, data = smooth_variogram, span = 0.1)
+  smooth_variogram$smoothed_gamma <- predict(loess_model, smooth_variogram$lag)
+  
+  return(list(variogram_df = variogram_df, smooth_variogram = smooth_variogram))
+}
+
+results <- compute_empirical_variogram(x_selected, Y_selected)
+
+variogram_df <- results$variogram_df
+smooth_variogram <- results$smooth_variogram
+
+
+plot(variogram_df$lag, variogram_df$gamma, col = "black", pch = 19,
+     main = "Variogramme empirique (brut)", xlab = "Lag", ylab = "Gamma")
+lines(smooth_variogram$lag, smooth_variogram$smoothed_gamma, col = "red", lwd = 2)
+legend("bottomright", legend = c("Empirique", "Lissé (LOESS)"), col = c("black", "red"), 
+       lty = c(NA, 1), pch = c(19, NA))
+grid()
+
+```
+
+```{r}
+compute_theoretical_variogram <- function(theta, sigma2, kernel_function, lags) {
+  covariances <- sapply(lags, function(h) {
+    kernel_function(matrix(0, 1, 1), matrix(h, 1, 1), theta)
+  })
+  gamma_h <- sigma2 - sigma2 * covariances
+  return(gamma_h)
+}
+
+# Lags extraits de smooth_variogram
+lags <- smooth_variogram$lag
+variogram_theoretical <- compute_theoretical_variogram(theta, sigma2, gauss_cov, lags)
+
+plot(smooth_variogram$lag, smooth_variogram$smoothed_gamma, col = "red", lwd = 2, type = "l",
+     main = "Comparaison Variogramme Lissé et Théorique", xlab = "Lag", ylab = expression(gamma(h)),xlim = c(0, 0.5)) # on garde des valeurs suffisamment faible de lag car sinon la moyenne effectuée n'es effectué que pour très peu de termes (les points extrèmes du domaine)
+lines(lags, variogram_theoretical, col = "blue", lwd = 2)
+legend("bottomright", legend = c("Lissé (LOESS)", "Théorique"), col = c("red", "blue"), 
+       lty = c(1, 1), pch = c(NA, NA))
+
+```
+
+
+Finalement, on va annalyser l'effet des chemins (réalisations d'un processus stochastique) et de la fonction noyau (kernel) sur l'estimation du variogramme. Dans un premier temps nous allons comparer plusieurs réalisations d'un processus gaussien et observer l'impact de différents noyaux sur le variogramme théorique;
+
+```{r}
+
+exp_cov <- function(x1, x2, theta) {
+  d = dim(x1)
+  cov = 1
+  for (i in 1:d[2]) { 
+    cov = cov * exp(-abs(x1[i] - x2[i]) / theta[i]) 
+  }
+  return(cov)
+}
+
+# Génération du processus gaussien avec le kernel exponentiel
+process_gaussien_exp  <- function(m, theta, n, sigma2) {
+  x <- matrix(seq(0, 1, length.out = n), n, 1)
+  cov_matrix <- matrix(0, n, n)
+  
+  # Utilisation du kernel exponentiel pour la matrice de covariance
+  for (i in 1:n) {
+    for (j in 1:n) {
+      cov_matrix[i, j] = sigma2 * exp_cov(matrix(x[i], 1, 1), matrix(x[j], 1, 1), theta)
+    }
+  }
+
+  # Calcul du processus gaussien
+  C <- chol(cov_matrix)
+  eps <- matrix(rnorm(n, 0, 1), n, 1) 
+  X = matrix(m, n, 1) + C %*% eps
+  return(X)
+}
+
+x = matrix(seq(0, 1, length.out = n),n,1)
+set.seed(800)
+Y1 = process_gaussien_exp(m,theta,n,sigma2)  # Other kernel 
+set.seed(123) 
+Y2 = process_gaussien(m,theta,n,sigma2)  # Other Seed
+
+plot(x, Y1, type = "l", col = "blue" )
+lines(x, Y2, type = "l", col = "red", lwd = 2)
+```
+
+```{r}
+# Nombre de réalisations à générer
+indices <- sample(1:n, n/2)
+x_selected_test_seed_ker= x[indices]
+Y1_selected_test_ker = Y1[indices]
+Y2_selected_test_seed = Y2[indices]
+
+
+results1 <- compute_empirical_variogram(x_selected_test_seed_ker, Y1_selected_test_ker)
+results2 <- compute_empirical_variogram(x_selected_test_seed_ker, Y2_selected_test_seed)
+
+
+smooth_variogram1ker <- results1$smooth_variogram
+smooth_variogram2seed <- results2$smooth_variogram
+```
+
+
+```{r}
+compute_theoretical_variogram <- function(theta, sigma2, kernel_function, lags) {
+  covariances <- sapply(lags, function(h) {
+    kernel_function(matrix(0, 1, 1), matrix(h, 1, 1), theta)
+  })
+  gamma_h <- sigma2 - sigma2 * covariances
+  return(gamma_h)
+}
+
+# Lags extraits de smooth_variogram
+lags <- smooth_variogram1ker$lag
+variogram_theoretical1 <- compute_theoretical_variogram(theta, sigma2, exp_cov, lags)
+
+plot(smooth_variogram1ker$lag, smooth_variogram1ker$smoothed_gamma, col = "red", lwd = 2, type = "l",
+     main = "Comparaison Variogramme Lissé et Théorique (Kernel exp)", xlab = "Lag", ylab = expression(gamma(h)),xlim = c(0, 0.5)) # on garde des valeurs suffisamment faible de lag car sinon la moyenne effectuée n'es effectué que pour très peu de termes (les points extrèmes du domaine)
+lines(lags, variogram_theoretical1, col = "blue", lwd = 2)
+legend("bottomright", legend = c("Lissé (LOESS)", "Théorique"), col = c("red", "blue"), 
+       lty = c(1, 1), pch = c(NA, NA))
+```
+
+
+
+```{r}
+compute_theoretical_variogram <- function(theta, sigma2, kernel_function, lags) {
+  covariances <- sapply(lags, function(h) {
+    kernel_function(matrix(0, 1, 1), matrix(h, 1, 1), theta)
+  })
+  gamma_h <- sigma2 - sigma2 * covariances
+  return(gamma_h)
+}
+
+# Lags extraits de smooth_variogram
+lags <- smooth_variogram2seed$lag
+variogram_theoretical2 <- compute_theoretical_variogram(theta, sigma2, gauss_cov, lags)
+
+plot(smooth_variogram2seed$lag, smooth_variogram2seed$smoothed_gamma, col = "red", lwd = 2, type = "l",
+     main = "Comparaison Variogramme Lissé et Théorique (different seed)", xlab = "Lag", ylab = expression(gamma(h)),xlim = c(0, 0.5)) # on garde des valeurs suffisamment faible de lag car sinon la moyenne effectuée n'es effectué que pour très peu de termes (les points extrèmes du domaine)
+lines(lags, variogram_theoretical2, col = "blue", lwd = 2)
+legend("bottomright", legend = c("Lissé (LOESS)", "Théorique"), col = c("red", "blue"), 
+       lty = c(1, 1), pch = c(NA, NA))
+```
+
+
+Pour conclure, on remarque que les variogrammes expérimentaux diffèrent significativement des théoriques on peut justifier cela ici par plusieurs facteurs :
+
+1.  *Échantillon insuffisant* : Un nombre trop faible de points limite la capture des structures spatiales.
+
+2.  *Paramètres inadaptés* : Des choix sous-optimaux de θ,σ2, ou du noyau influencent la qualité des résultats.
+
+3.  *Intervalle restreint* : Des lags trop petits empêchent d’explorer pleinement la corrélation.
+
+4.  *Non-convergence* : Les estimations empiriques ne convergent pas avec des données bruitées ou insuffisantes.
+
+Pour améliorer ces résultats, il est essentiel d’augmenter le nombre de points, d’ajuster les paramètres (θ, σ2), de tester différents kernels, et d’explorer des plages de lags plus larges. Une approche itérative est nécessaire pour obtenir une meilleure concordance entre empirique et théorique.
+
+
+
+
+
+# Partie2
+
+```{r}
+set.seed(42)
+theta <- 0.1
+Y = process_gaussien(m,theta,n,sigma2)
+N_pt = 5
+indices <- sample(1:n, N_pt)
+x_obs = x[indices]
+Y_obs = Y[indices]
+```
+
+
+
+```{r}
+log_likelihood_theta <- function(theta_guess) {
+
+  R <- R_matrix(theta_guess, length(x_obs), x_obs)
+  det_R <- det(R)
+  if (det_R <= 0) return(Inf) 
+  inv_R <- solve(R)
+  
+  # estimate m
+  ones <- rep(1, length(x_obs))
+  m_hat_theta <- as.numeric((t(ones) %*% inv_R %*% Y_obs) / (t(ones) %*% inv_R %*% ones))
+  
+  
+  residual <- Y_obs - m_hat_theta
+  
+  # Estimate sigma^2
+  sigma2_hat_theta <- as.numeric((t(residual) %*% inv_R %*% residual) / length(x_obs))
+  
+  n <- length(x_obs)
+  log_likelihood <-0.5*( n * log(2 * pi * sigma2_hat_theta) + log(det_R))
+  return(log_likelihood)
+}
+
+# Evaluation du likelihood as comme fonction de theta
+theta_values <- seq(0.005, 0.5, length.out = 100)
+log_likelihood_values_theta <- sapply(theta_values, log_likelihood_theta)
+
+# Step 5: Find the index of the minimum using which.min()
+min_index <- which.min(log_likelihood_values_theta)
+
+# Step 6: Retrieve the theta value corresponding to the minimum
+theta_mle <- theta_values[min_index]
+
+#Plot
+plot(theta_values, log_likelihood_values_theta, type = "l", col = "blue",
+     main = "Log-Likelihood vs Theta",
+     xlab = expression(theta), ylab = "Log-Likelihood")
+
+theta_mle
+```
+
+
+
+
+
+
+```{r}
+compare_predictions_with_intervals <- function(Y, indices, theta, theta_estim, m, n, sigma2) {
+  x <- seq(0, 1, length.out = n)
+  
+  # Krigeage avec vrai paramètre
+  Y_pred_true <- kriging(Y, indices, m, theta, n, sigma2)
+  var_pred_true <- sapply(1:n, function(i) {
+    esperence_variance(m, theta, length(indices), x[indices], Y[indices], x[i])[[2]]
+  })
+  
+  # Krigeage avec le paramètre estimé par mle
+  R_theta = R_matrix(theta_estim, length(x_obs), x_obs)
+  det_R_theta <- det(R_theta)
+  inv_R_theta <- solve(R_theta)
+
+  # estimate m
+  ones <- rep(1, length(x_obs))
+  m_hat_theta <- as.numeric((t(ones) %*% inv_R_theta %*% Y_obs) / (t(ones) %*% inv_R_theta %*% ones))
+
+  residual <- Y_obs - m_hat_theta
+
+  # Estimate sigma^2
+  sigma2_hat_theta <- as.numeric((t(residual) %*% inv_R_theta %*% residual) / length(x_obs))
+  
+  Y_pred_estim <- kriging(Y, indices, m_hat_theta, theta_estim, n, sigma2_hat_theta)
+  var_pred_estim <- sapply(1:n, function(i) {
+    esperence_variance(m, theta_estim, length(indices), x[indices], Y[indices], x[i])[[2]]
+  })
+  
+  return(list(
+    Y_pred_true = Y_pred_true,
+    var_pred_true = var_pred_true,
+    Y_pred_estim = Y_pred_estim,
+    var_pred_estim = var_pred_estim
+  ))
+}
+```
+
+
+
+```{r}
+comparison_with_intervals <- compare_predictions_with_intervals(Y, indices, theta, theta_estim, m, n, sigma2)
+
+# Visualisation des prédictions et des intervalles
+x <- seq(0, 1, length.out = n)
+plot(x_obs, Y_obs, col = "black", lwd = 2, main = "Comparaison des prédictions avec intervalles",
+     xlab = "x", ylab = "Y", ylim = range(Y, 
+                                          comparison_with_intervals$Y_pred_true - 2 * sqrt(comparison_with_intervals$var_pred_true),
+                                          comparison_with_intervals$Y_pred_estim + 2 * sqrt(comparison_with_intervals$var_pred_estim)))
+
+# Prédictions avec le vrai theta
+lines(x, comparison_with_intervals$Y_pred_true, col = "blue", lwd = 2, lty = 2)
+lines(x, comparison_with_intervals$Y_pred_true + 2 * sqrt(comparison_with_intervals$var_pred_true), col = "blue", lwd = 1, lty = 3)
+lines(x, comparison_with_intervals$Y_pred_true - 2 * sqrt(comparison_with_intervals$var_pred_true), col = "blue", lwd = 1, lty = 3)
+
+# Prédictions avec theta estimé par estim
+lines(x, comparison_with_intervals$Y_pred_estim, col = "red", lwd = 2, lty = 2)
+lines(x, comparison_with_intervals$Y_pred_estim + 2 * sqrt(comparison_with_intervals$var_pred_estim), col = "red", lwd = 1, lty = 3)
+lines(x, comparison_with_intervals$Y_pred_estim - 2 * sqrt(comparison_with_intervals$var_pred_estim), col = "red", lwd = 1, lty = 3)
+
+legend("topleft", 
+       legend = c("Observations", "Prédiction (\u03B8 vrai)", "Intervalle (\u03B8 vrai)", 
+                  "Prédiction (\u03B8 estim MLE)", "Intervalle (\u03B8 estim MLE)"), 
+       col = c("black", "blue", "blue", "red", "red"), 
+       lty = c(NA, 2, 3, 2, 3), lwd = c(2, 2, 1, 2, 1), pch = c(19, NA, NA, NA, NA))
+```
+
+
+
+
+# 3. Leave one out method
+```{r}
+# Fonction pour Leave-One-Out Estimation de la portée (theta)
+loo_estimation <- function(x, y, theta_values, sigma2, m) {
+  n <- length(x)
+  loo_errors <- numeric(length(theta_values))  # Stocker les erreurs pour chaque theta
+  
+  for (t_idx in seq_along(theta_values)) {
+    theta <- theta_values[t_idx]
+    total_error <- 0
+    
+    for (i in 1:n) {
+      # Points restants après exclusion
+      x_train <- x[-i]
+      y_train <- y[-i]
+      
+      # Valeur à prédire (point exclu)
+      x_test <- x[i]
+      y_test <- y[i]
+      
+      # Krigeage avec les points restants
+      prediction <- esperence_variance(m, theta, length(x_train), x_train, y_train, x_test)[[1]]
+      
+      # Erreur quadratique
+      total_error <- total_error + (y_test - prediction)^2
+    }
+    
+    # Stocker l'erreur moyenne pour le theta
+    loo_errors[t_idx] <- total_error / n
+  }
+  
+  # Trouver le theta qui minimise l'erreur
+  best_theta_idx <- which.min(loo_errors)
+  best_theta <- theta_values[best_theta_idx]
+  
+  return(list(best_theta = best_theta, errors = loo_errors))
+}
+
+# Comparaison des prédictions
+compare_predictions <- function(Y, indices, theta, theta_loo, m, n, sigma2) {
+  x <- seq(0, 1, length.out = n)
+  
+  # Krigeage avec le vrai paramètre
+  Y_pred_true <- kriging(Y, indices, m, theta, n, sigma2)
+  
+  # Krigeage avec le paramètre estimé par LOO
+  Y_pred_loo <- kriging(Y, indices, m, theta_loo, n, sigma2)
+  
+  return(list(Y_pred_true = Y_pred_true, Y_pred_loo = Y_pred_loo))
+}
+
+# Exemple d'utilisation
+
+# Paramètres et données
+
+set.seed(42)
+
+theta_values <- seq(0.05, 0.2, length.out = 50)
+
+# Estimation LOO
+loo_result <- loo_estimation(seq(0, 1, length.out = n)[indices], Y[indices], theta_values, sigma2, m)
+theta_loo <- loo_result$best_theta
+
+# Comparaison des prédictions
+comparison <- compare_predictions(Y, indices, theta, theta_loo, m, n, sigma2)
+
+# Visualisation des prédictions
+x <- seq(0, 1, length.out = n)
+plot(x_obs, Y_obs,, col = "black", lwd = 2, main = "Comparaison des prédictions par krigeage",
+     xlab = "x", ylab = "Y", ylim = range(Y, comparison$Y_pred_true, comparison$Y_pred_loo))
+lines(x, comparison$Y_pred_true, col = "blue", lwd = 2, lty = 2)
+lines(x, comparison$Y_pred_loo, col = "red", lwd = 2, lty = 3)
+legend("topleft", legend = c("Réel", "Prédiction (\u03B8 vrai)", "Prédiction (\u03B8 LOO)"), 
+       col = c("black", "blue", "red"), lty = c(1, 2, 3), lwd = 2)
+```
+
+```{r}
+compare_predictions_with_intervals <- function(Y, indices, theta, theta_loo, m, n, sigma2) {
+  x <- seq(0, 1, length.out = n)
+  
+  # Krigeage avec vrai paramètre
+  Y_pred_true <- kriging(Y, indices, m, theta, n, sigma2)
+  var_pred_true <- sapply(1:n, function(i) {
+    esperence_variance(m, theta, length(indices), x[indices], Y[indices], x[i])[[2]]
+  })
+  
+  # Krigeage avec le paramètre estimé par LOO
+  Y_pred_loo <- kriging(Y, indices, m, theta_loo, n, sigma2)
+  var_pred_loo <- sapply(1:n, function(i) {
+    esperence_variance(m, theta_loo, length(indices), x[indices], Y[indices], x[i])[[2]]
+  })
+  
+  return(list(
+    Y_pred_true = Y_pred_true,
+    var_pred_true = var_pred_true,
+    Y_pred_loo = Y_pred_loo,
+    var_pred_loo = var_pred_loo
+  ))
+}
+```
+
+```{r}
+# Comparaison des prédictions avec intervalles
+comparison_with_intervals <- compare_predictions_with_intervals(Y, indices, theta, theta_loo, m, n, sigma2)
+
+# Visualisation des prédictions et des intervalles
+x <- seq(0, 1, length.out = n)
+plot(x_obs, Y_obs, col = "black", lwd = 2, main = "Comparaison des prédictions avec intervalles",
+     xlab = "x", ylab = "Y", ylim = range(Y, 
+                                          comparison_with_intervals$Y_pred_true - 2 * sqrt(comparison_with_intervals$var_pred_true),
+                                          comparison_with_intervals$Y_pred_loo + 2 * sqrt(comparison_with_intervals$var_pred_loo)))
+
+# Prédictions avec le vrai theta
+lines(x, comparison_with_intervals$Y_pred_true, col = "blue", lwd = 2, lty = 2)
+lines(x, comparison_with_intervals$Y_pred_true + 2 * sqrt(comparison_with_intervals$var_pred_true), col = "blue", lwd = 1, lty = 3)
+lines(x, comparison_with_intervals$Y_pred_true - 2 * sqrt(comparison_with_intervals$var_pred_true), col = "blue", lwd = 1, lty = 3)
+
+# Prédictions avec theta estimé par LOO
+lines(x, comparison_with_intervals$Y_pred_loo, col = "red", lwd = 2, lty = 2)
+lines(x, comparison_with_intervals$Y_pred_loo + 2 * sqrt(comparison_with_intervals$var_pred_loo), col = "red", lwd = 1, lty = 3)
+lines(x, comparison_with_intervals$Y_pred_loo - 2 * sqrt(comparison_with_intervals$var_pred_loo), col = "red", lwd = 1, lty = 3)
+
+legend("topleft", 
+       legend = c("Observations", "Prédiction (\u03B8 vrai)", "Intervalle (\u03B8 vrai)", 
+                  "Prédiction (\u03B8 LOO)", "Intervalle (\u03B8 LOO)"), 
+       col = c("black", "blue", "blue", "red", "red"), 
+       lty = c(NA, 2, 3, 2, 3), lwd = c(2, 2, 1, 2, 1), pch = c(19, NA, NA, NA, NA))
+
+```
+
+# Conclusion
+
+```{r}
+
+```
+

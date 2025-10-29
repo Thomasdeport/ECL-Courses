@@ -1,0 +1,129 @@
+Question 1)
+
+```{r}
+hormones = read.table(file = "hormones.txt", header = T, dec = ",")
+summary(hormones)
+```
+
+```{r}
+hormones$X1 <- (hormones$X1- 85)/35  
+hormones$X2 <- (hormones$X2- 20)/5
+```
+```{r}
+plot(X2~X1, data = hormones)
+```
+```{r}
+mod1 <- lm(Y1 ~X1 + X2 + X1 :X2 + I(X1^2) + I(X2^2), data =hormones)
+summary(mod1)
+par(mfrow=c(2,2))
+plot(mod1)
+```
+
+Les hormones ont un effet en effet on a p-value: 0.005037 <0.05 donc l'hypothèse nulle est rejetée avec un seuil de confiance de 95 %. 
+
+```{r}
+mod2 <- lm(Y1 ~X1 + X2+ I(X1^2) + I(X2^2), data =hormones)
+summary(mod2)
+par(mfrow=c(2,2))
+plot(mod2)
+```
+Le Adjusted R-squared 1 (avec interaction) :  0.965  > Adjusted  R-squared 2 (sans interaction) :  0.9566, donc l'interaction X1:X2 n'a pas d'effet significatif. 
+```{r}
+grid <- expand.grid(X1 = seq(min(hormones$X1), max(hormones$X1), length = 50),
+                    X2 = seq(min(hormones$X2), max(hormones$X2), length = 50))
+
+grid$pred_Y1 <- predict(mod2, newdata = grid)
+# on utilise le modèle sans interaction 
+
+
+
+library(reshape2)
+grid_matrix <- acast(grid, X1 ~ X2, value.var = "pred_Y1")
+
+# Étape 4 : Générer le graphique de contours
+contour(x = unique(grid$X1), 
+        y = unique(grid$X2), 
+        z = grid_matrix, 
+        xlab = "Dose X1", 
+        ylab = "Dose X2", 
+        main = "Contours des doses d'hormones pour maximiser Y1")
+```
+```{r}
+summary(grid)
+valeur_max <- max(grid$pred_Y1)
+indice_max <- which.max(grid$pred_Y1)
+grid[indice_max, ]
+X1 <- (grid[indice_max, "X1"] * 35) + 85
+X2 <- (grid[indice_max, "X2"] * 5) + 20
+```
+```{r}
+X1 
+X2 
+```
+On détermine ainsi : X1= 102.1735, X2 = 24.47286 dans les proportions fournies en début d'énoncé.
+```{r}
+nouvel_individu = data.frame(X1 = 100 , X2=20 )
+nouvel_individu$X1 <- (nouvel_individu$X1- 85)/35  
+nouvel_individu$X2 <- (nouvel_individu$X2- 20)/5
+prediction = predict(mod2, newdata = nouvel_individu)
+prediction_IC = data.frame(predict(mod2, newdata = nouvel_individu, interval = 'confidence', level = 0.95))
+prediction_IC
+```
+
+```{r}
+mod3 <- lm(Y2 ~X1 + X2 + X1 :X2 + I(X1^2) + I(X2^2), data =hormones)
+summary(mod3)
+par(mfrow=c(2,2))
+plot(mod3)
+```
+```{r}
+mod4 <- lm(Y2 ~X1 + X2 + I(X1^2) + I(X2^2), data =hormones)
+summary(mod4)
+par(mfrow=c(2,2))
+plot(mod4)
+```
+
+
+Sur le deuxième groupe d'individu on remarque que le R-square adjusted diminue lorsqu'on enlève l'interaction on en déduit que l'interaction n'est plus négligeable, on utilisera donc le mod3
+```{r}
+grid <- expand.grid(X1 = seq(min(hormones$X1), max(hormones$X1), length = 50),
+                    X2 = seq(min(hormones$X2), max(hormones$X2), length = 50))
+
+grid$pred_Y2 <- predict(mod3, newdata = grid)
+# on utilise le modèle sans interaction 
+
+
+
+library(reshape2)
+grid_matrix2 <- acast(grid, X1 ~ X2, value.var = "pred_Y2")
+
+# Étape 4 : Générer le graphique de contours
+contour(x = unique(grid$X1), 
+        y = unique(grid$X2), 
+        z = grid_matrix2, 
+        xlab = "Dose X1", 
+        ylab = "Dose X2", 
+        main = "Contours des doses d'hormones pour maximiser Y2")
+```
+```{r}
+summary(grid)
+valeur_max <- max(grid$pred_Y2)
+indice_max <- which.max(grid$pred_Y2)
+grid[indice_max, ]
+X1 <- (grid[indice_max, "X1"] * 35) + 85
+X2 <- (grid[indice_max, "X2"] * 5) + 20
+```
+
+```{r}
+X1 
+X2 
+```
+
+```{r}
+nouvel_individu = data.frame(X1 = 100 , X2=20 )
+nouvel_individu$X1 <- (nouvel_individu$X1- 85)/35  
+nouvel_individu$X2 <- (nouvel_individu$X2- 20)/5
+prediction = predict(mod3, newdata = nouvel_individu)
+prediction_IC = data.frame(predict(mod3, newdata = nouvel_individu, interval = 'confidence', level = 0.95))
+prediction_IC
+```

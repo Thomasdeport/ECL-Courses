@@ -1,0 +1,235 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+# ANALYSE DE SENSIBILITE
+library(sensitivity)
+```
+
+# Exercice 1
+
+Q1)
+```{r}
+n <- 10
+d <- 2
+
+set.seed(245)
+
+# Création des matrices PX1 et PX2
+PX1 <- data.frame(matrix(runif(n * d, 0, 1), nrow = n))
+PX2 <- data.frame(matrix(runif(n * d, 0, 1), nrow = n))
+```
+
+
+Q2)
+```{r}
+# Application de la méthode sobolEff
+res_SobolEff <- sobolEff(model=NULL, PX1, PX2)
+
+# Affichage de la dimension de la sortie X
+cat("Dimensions de res_SobolEff$X :", dim(res_SobolEff$X), "\n")
+
+#Visualisation des plans
+plot(res_SobolEff$X[1:n,], col='red', xlab='X1', ylab='X2', xlim=c(0,1), ylim=c(0,1), main="sobolEff")
+points(res_SobolEff$X[(n+1):(2*n),], col='blue', pch=3)
+abline(v=res_SobolEff$X[1:n,1], lty=2, col='darkgrey')
+points(res_SobolEff$X[(2*n+1):(3*n),], col='green', pch=3)
+abline(h=res_SobolEff$X[1:n,2], lty=2, col='darkgrey')
+```
+Le champ X de sortie est de dimension (30,2), ce qui est conforme aux attentes : on évalue la fonction en modifiant une seule variable à la fois tout en maintenant les autres constantes. Pour un problème de dimension d il faut générer n points de base (nxd), puis remplacer chaque dimension d une à une, ce qui ajoute d×n points supplémentaire. On voit bien que pour chaque point de base (points rouges), on a deux points modifiés dans chacune des directions X1 et X2. 
+Au final on a bien n + nxd évaluations, soit (2+1)*10 = 30 évaluations ici.Orchaque point est dans un espace de dimension 2 donc la dimension attendue de la sortie est bien (30,2)
+
+Q3)
+```{r}
+# Application de la méthode sobolroalhs
+res_Sobolroalhs <- sobolroalhs(model=NULL, X1=PX1, X2=PX2, factors=d, N=n,order=1)
+
+# Affichage de la dimension de la sortie X
+cat("Dimensions de res_Sobolroalhs$X :", dim(res_Sobolroalhs$X), "\n")
+
+# Visualisation des plans obtenus
+plot(res_Sobolroalhs$X[,1], res_Sobolroalhs$X[,2], col='purple', xlab='X1', ylab='X2', xlim=c(0,1), ylim=c(0,1), main="sobolroalhs")
+abline(v=unique(res_Sobolroalhs$X[,1]), lty=2, col='darkgrey')  # Lignes verticales
+abline(h=unique(res_Sobolroalhs$X[,2]), lty=2, col='darkgrey')  # Lignes horizontales
+```
+
+Dans le cas de la méthode sobolroalhs, on utilise une approche basée sur le Latin Hypercube Sampling, qui permet d'estimer les indices de Sobol avec seulement 2×n évaluations. On génère deux échantillons indépendants de taille n, PX1 et PX2, tous deux de dimension n×d. Ensuite, pour chaque dimension j, on  remplace les colonnes de PX1 par celles de PX2, une par une, afin d’analyser l’effet de chaque variable individuellement. On a donc n points de base plus n points supplémentaires où l'on effectue des permutations, soit de 2×n points en tout. Ainsi, pour d=2 et n=10, le champ X aura une dimension de 20×2. Cette approche est plus efficace que sobolEff, car elle réduit le nombre d’évaluations nécessaires tout en conservant une bonne estimation des indices de Sobol.
+
+# Exercice 2
+Y =X1 + X2
+Q1b)
+
+```{r}
+# -------------------------------------------------------------
+# Analyse de sensibilité : Indices de Sobol' pour Y = X1 + X2
+# -------------------------------------------------------------
+
+# Taille du plan d'expériences
+n <- 1000  # Nombre d'échantillons
+d <- 2     # Dimension
+
+# Définition du modèle Y = X1 + X2
+somme2 <- function(X) {
+  return(X[,1] + X[,2])  # Somme des deux premières colonnes
+}
+
+
+# -------------------------------------------------------------
+# Cas 1 : X1 ~ U([-1,1]) et X2 ~ U([-1,1])
+############################
+
+somme21_roals <-function(X){
+  return(((X[,1]+1)/2 + (X[,2]+1)/2))
+}
+
+PX1 <- data.frame(cbind(runif(n, -1, 1), runif(n, -1, 1)))
+PX2 <- data.frame(cbind(runif(n, -1, 1), runif(n, -1, 1)))
+
+res_soboleff <- sobolEff(model=somme2, X1=PX1, X2=PX2, nboot=100, conf=0.95)
+print(res_soboleff)
+plot(res_soboleff)
+
+
+res_sobolroalhs <- sobolroalhs(model=somme21_roals, factors=d, N=n, order=1)
+print(res_sobolroalhs)
+
+# -------------------------------------------------------------
+# Cas 2 : X1 ~ U([-1,1]) et X2 ~ U([0,2])
+############################
+somme22_roals <-function(X){
+  return(((X[,1]+1)/2 + (X[,2])/2))
+}
+PX1 <- data.frame(cbind(runif(n, -1, 1), runif(n, 0, 2)))
+PX2 <- data.frame(cbind(runif(n, -1, 1), runif(n, 0, 2)))
+
+res_soboleff <- sobolEff(model=somme2, X1=PX1, X2=PX2, nboot=100, conf=0.95)
+print(res_soboleff)
+plot(res_soboleff)
+
+res_sobolroalhs <- sobolroalhs(model=somme22_roals,  factors=d, N=n,order = 1)
+print(res_sobolroalhs)
+
+# -------------------------------------------------------------
+
+# Cas 3 : X1 ~ U([-1,1]) et X2 ~ U([-2,2])
+############################
+somme23_roals <-function(X){
+  return(((X[,1]+1)/2 + (X[,2]+2)/4))
+}
+PX1 <- data.frame(cbind(runif(n, -1, 1), runif(n, -2, 2)))
+PX2 <- data.frame(cbind(runif(n, -1, 1), runif(n, -2, 2)))
+
+res_soboleff <- sobolEff(model=somme2, X1=PX1, X2=PX2, nboot=100, conf=0.95)
+print(res_soboleff)
+plot(res_soboleff)
+res_sobolroalhs <- sobolroalhs(model=somme23_roals,  factors=d, N=n,order = 1)
+print(res_sobolroalhs)
+
+
+# Cas 4 : 
+
+somme24_roals <- function(X){
+  # X[,1] suit une loi uniforme, X[,2] suit une loi normale avec mean=0 et sd=sqrt(4/3)
+  X2_quantile <- qnorm((X[,2] + 2) / 4, mean = 0, sd = sqrt(4/3))  # Inverse de la CDF pour X2
+  return(((X[,1] + 1) / 2) + X2_quantile)
+}
+
+
+# Générer X1 (loi uniforme sur [-1, 1]) et X2 (loi normale avec moyenne 0 et variance 4/3)
+PX1<- data.frame(cbind(runif(n, -1, 1), rnorm(n, mean = 0, sd = sqrt(4/3))))
+PX2 <- data.frame(cbind(runif(n, -1, 1), rnorm(n, mean = 0, sd = sqrt(4/3))))
+
+# Exécution de l'analyse Sobol avec sobolEff
+res_sobolEff <- sobolEff(model = somme23_roals, X1 = PX1, X2 = PX2, nboot = 100, conf = 0.95)
+
+# Affichage des résultats
+print(res_sobolEff)
+plot(res_sobolEff)
+
+# Exécution de l'analyse Sobol avec sobolroalhs
+res_sobolroalhs <- sobolroalhs(model = somme24_roals, factors = d, N = n, order = 1)
+print(res_sobolroalhs)
+
+```
+
+On retrouve bien des résultats proches de ceux trouvés par les calculs, à savoir dans le cas 1 : 1/2, 1/2, cas 2 : 1/2, 1/2, cas 3 : 4/5, 1/5. On constate que la part de variance expliquée par le terme X1 et X2( indices de Sobol d’ordre 1) est pour le cas de la somme proportionnel à la variance de chaque terme individuel. Dans le cas de la loi uniforme sur -2,2, on retrouve donc bien un indice de sobol 2^2 fois plus important que dans le cas de la loi uniforme. 
+
+
+En revanche, les indices de Sobol calculés pour les facteurs X1 (uniforme) et X2 (normale) ne suivent pas la répartition attendue de 1/5 et 4/5 en raison de la nature non-linéaire et interactive du modèle. Bien que la loi normale pour X2 ait une variance de 4/3, l'interaction entre X1 et X2, ainsi que la spécification du modèle, influencent les indices de Sobol de manière complexe. Les indices sont sensibles aux effets individuels et aux interactions entre les variables, ce qui peut entraîner une répartition différente des indices selon l'importance respective de chaque facteur dans le modèle. De plus, le nombre limité de simulations (100 dans ce cas) pourrait nuire à la précision des estimations des indices.
+
+
+
+
+```{r}
+
+
+# -------------------------------------------------------------
+# Vérification des indices totaux avec sobolEff (order = 0)
+# -------------------------------------------------------------
+for (i in 1:4) {
+  cat("\n=== Vérification des indices totaux pour le Cas", i, "===\n")
+
+  PX1 <- switch(i,
+                data.frame(cbind(runif(n, -1, 1), runif(n, -1, 1))),
+                data.frame(cbind(runif(n, -1, 1), runif(n, 0, 2))),
+                data.frame(cbind(runif(n, -1, 1), runif(n, -2, 2))),
+                data.frame(cbind(runif(n, -1, 1), rnorm(n, mean = 0, sd = sqrt(4/3))))
+  )
+  
+  PX2 <- switch(i,
+                data.frame(cbind(runif(n, -1, 1), runif(n, -1, 1))),
+                data.frame(cbind(runif(n, -1, 1), runif(n, 0, 2))),
+                data.frame(cbind(runif(n, -1, 1), runif(n, -2, 2))),
+                data.frame(cbind(runif(n, -1, 1), rnorm(n, mean = 0, sd = sqrt(4/3))))
+  )
+
+  res_soboleff_total <- sobolEff(model=somme2, X1=PX1, X2=PX2, nboot=100, conf=0.95, order=0)
+  print(res_soboleff_total)
+}
+```
+Les variables agissent indépendemment les unes des autres, ont le retrouve bien ici car les coefficients X1 et X2 déterminés par le modèle d'ordre 0 donne des résultats sensiblements similaire à ceux déterminés ci-dessus ce qui se retrouve bien par les calculs ou on voit directement que les effets d'interaction entre X1 et X2 sont négligeables (nuls théoriquement), le petit écart peut s'expliquer du fait que le nombre de simulation est ici faible. On retrouve en
+
+```{r}
+#taille du plan d'expériences
+n = 1000
+d = 2
+
+somme2 <- function(X){return(X[,1]+X[,2])}
+
+# cas où X1 Unif[-1,1] et X2 Unif[-1,1]
+############################
+PX1 <- data.frame(cbind(matrix(runif( n,-1,1), nrow = n),matrix(runif( n,-1,1), nrow = n)))
+PX2 <- data.frame(cbind(matrix(runif( n,-1,1), nrow = n),matrix(runif( n,-1,1), nrow = n)))
+
+res_soboleff <- sobolEff(model = somme2,PX1, PX2,nboot=100,conf=0.95)
+print(res_soboleff)
+plot(res_soboleff)
+
+
+# cas où X1 Unif[-1,1] et X2 Unif[0,2]
+############################
+
+# cas où X1 Unif[-1,1] et X2 Unif[-2,2]
+############################
+
+
+# cas où X1 Unif[-1,1] et X2 N(0,2/sqrt(3))
+############################
+
+
+# -------------------------------------------------------------
+# Estimation des indices f(x1,x2) = x1 * x2
+# Methode sobolEff
+# -------------------------------------------------------------
+
+
+# -------------------------------------------------------------
+# Estimation des indices sur ishigami
+# f(x1,x2,x3) = sin(X1) + 7 sin(X2)^2 + 0.1 * X3^4*sin(X1)
+# Methode sobolroals et saltelli
+# -------------------------------------------------------------
+```
+

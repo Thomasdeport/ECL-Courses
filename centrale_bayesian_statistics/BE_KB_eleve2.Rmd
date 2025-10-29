@@ -1,0 +1,1126 @@
+---
+title: "BE Krigeage Bayésien"
+output: html_document
+date: "2025-01-02"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+---
+title: "BE Krigeage Bayésien"
+output: html_document
+date: "2025-01-02"
+---
+
+{r setup, include=FALSE} knitr::opts_chunk\$set(echo = TRUE)
+
+## 1er exercice
+
+Soient $m_0 = 10$ et $\sigma^2_0 = 2$. On se donne $n$ réalisations
+$x_1, ..., x_n$ de $X_0\sim \mathcal{N}(m_0,\sigma^2_0)$.
+
+## Question 1:
+
+On suppose que $x_1, ..., x_n$ sont la réalisation d'un échantillon de
+$X \sim \mathcal{N}(m,\sigma^2)$. Estimer $m$ et $\sigma^2$ par maximum
+de vraisemblance.
+
+#### Maximisation de la Vraisemblance
+
+Le logarithme de la vraisemblance pour les observations
+$x_1, \dots, x_n$ est donné par :
+
+$$
+\ell(m, \sigma^2) = -\frac{n}{2} \log(2\pi\sigma^2) - \frac{1}{2\sigma^2} \sum_{i=1}^{n} (x_i - m)^2.
+$$
+
+### Estimation des paramètres
+
+#### Estimation de $m$
+
+Pour maximiser la vraisemblance par rapport à $m$, on dérive $\ell$ par
+rapport à $m$ :
+
+$$
+\frac{\partial \ell}{\partial m} = \frac{1}{\sigma^2} \sum_{i=1}^{n} (x_i - m).
+$$
+
+En annulant cette dérivée, on obtient :
+
+$$
+\hat{m} = \frac{1}{n} \sum_{i=1}^{n} x_i = \bar{x}.
+$$
+
+#### Estimation de $\sigma^2$
+
+Pour maximiser la vraisemblance par rapport à $\sigma^2$, on dérive
+$\ell$ par rapport à $\sigma^2$ :
+
+$$
+\frac{\partial \ell}{\partial \sigma^2} = -\frac{n}{2\sigma^2} + \frac{1}{2\sigma^4} \sum_{i=1}^{n} (x_i - m)^2.
+$$
+
+En annulant cette dérivée, on obtient :
+
+$$
+\hat{\sigma}^2 = \frac{1}{n} \sum_{i=1}^{n} (x_i - \hat{m})^2.
+$$
+
+### Résumé des estimateurs du maximum de vraisemblance (EMV)
+
+-   $\hat{m} = \bar{x}$ : la moyenne empirique des données.
+-   $\hat{\sigma}^2 = \frac{1}{n} \sum_{i=1}^{n} (x_i - \bar{x})^2$ : la
+    variance empirique calculée sur l'échantillon.
+
+## Question 2:
+
+Estimer $m$ et $\sigma^2$ dans un contexte bayésien. Pour cela, mettre
+en place une estimation MCMC de la loi a posteriori du couple
+$(m,\sigma^2)$ à partir d'une loi a priori non informative (uniforme sur
+$\mathbb{R}$ pour $m$ et uniforme sur [0,100] pour $\sigma^2$ ou une loi
+de Jeffreys, $m$ et $\sigma^2$ étant indépendantes).\
+Etudier l'influence de la variance de la loi instrumentale sur
+l'autocorrélation de la chaine, le taux d'acceptation et la convergence
+de l'algorithme.\
+Représenter la loi a posteriori du couple $(m,\sigma^2)$, calculer la
+covariance.\
+Représenter les lois marginales. Proposer une estimation de $m$ et
+$\sigma^2$.
+
+#### Loi a priori
+
+-   *Pour* $m$ : Une loi uniforme sur $\mathbb{R}$, ce qui signifie que
+    $m$ a une densité constante ($\pi(m) \propto 1$).
+-   *Pour* $\sigma^2$ : Une loi uniforme sur $[0, 100]$, ou bien une loi
+    de Jeffreys ($\pi(\sigma^2) \propto \frac{1}{\sigma^2}$).
+-   Les deux paramètres $m$ et $\sigma^2$ sont supposés *indépendants*.
+
+#### Loi a posteriori
+
+D’après le théorème de Bayes, la loi a posteriori des paramètres $m$ et
+$\sigma^2$ est donnée par puisque on a indépendance:
+
+$$
+\pi(m, \sigma^2 | X) \propto \mathit{L}(X | m, \sigma^2) \cdot \pi(m) \cdot \pi(\sigma^2),
+$$
+
+où : $\mathit{L}(X | m, \sigma^2)$ est la *vraisemblance* conditionnelle
+aux paramètres, $\pi(m)$ et $\pi(\sigma^2)$ sont les lois a priori.
+
+#### Vraisemblance
+
+La vraisemblance s’écrit :
+
+$$
+\mathit{L}(X | m, \sigma^2) = \prod_{i=1}^n \frac{1}{\sqrt{2 \pi \sigma^2}} \exp\left(-\frac{(x_i - m)^2}{2 \sigma^2}\right),
+$$
+
+#### Lois a priori
+
+-   $\pi(m) \propto 1$ (uniforme sur $\mathbb{R}$),
+-   $\pi(\sigma^2) \propto \frac{1}{\sigma^2}$ (loi de Jeffreys).
+
+#### Loi a posteriori
+
+La loi a posteriori finale est donnée par:
+
+$$
+\pi(m, \sigma^2 | X) \propto \left(\frac{1}{\sigma^2}\right)^{n/2 + 1} \exp\left(-\frac{1}{2 \sigma^2} \sum_{i=1}^n (x_i - m)^2\right).
+$$
+
+#### Algorithme Metropolis-Hastings
+
+L’objectif est de simuler le couple $(m, \sigma^2)$ à partir de cette
+loi a posteriori.
+
+#### Étapes de l’algorithme :
+
+1.  *Initialisation* :\
+    Définir un point initial $(m_0, \sigma^2_0)$.
+
+2.  *Proposition* :\
+    À chaque étape $t$ :
+
+    -   Proposer $m' \sim \mathit{N}(m_t, \sigma_m)$,
+    -   Proposer
+        $\sigma^{2'} \sim |\mathit{N}(\sigma^2_t, \sigma_{s^2})|$ (on
+        utilise la valeur absolue pour garantir $\sigma^{2'} > 0$).
+
+3.  *Calcul du ratio d’acceptation* :\
+    La loi de transition $\mu((m_t, \sigma^2_t), (m', \sigma^{2'}))$ est
+    symétrique (loi normale), donc elle se simplifie dans le calcul
+    grâce à la *réversibilité*. Ainsi, le ratio d’acceptation est :
+
+$$
+\alpha((m_t, \sigma^2_t), (m', \sigma^{2'})) = \min \left( 1, \frac{\pi(m', \sigma^{2'} | X)}{\pi(m_t, \sigma^2_t | X)} \right).
+$$
+
+En remplaçant $\pi(m, \sigma^2 | X)$ :
+
+$$
+\alpha((m_t, \sigma^2_t), (m', \sigma^{2'})) = \min \left( 1, \frac{\left(\frac{1}{\sigma^{2'}}\right)^{n/2 + 1} \exp\left(-\frac{1}{2 \sigma^{2'}} \sum_{i=1}^n (x_i - m')^2\right)}{\left(\frac{1}{\sigma^2_t}\right)^{n/2 + 1} \exp\left(-\frac{1}{2 \sigma^2_t} \sum_{i=1}^n (x_i - m_t)^2\right)} \right).
+$$
+
+4.  *Acceptation ou rejet* :
+    -   Simuler $U \sim \mathit{U}[0, 1]$.\
+    -   Si $U \leq \alpha$, accepter la proposition :
+        $(m_{t+1}, \sigma^2_{t+1}) = (m', \sigma^{2'})$.\
+    -   Sinon, rejeter la proposition :
+        $(m_{t+1}, \sigma^2_{t+1}) = (m_t, \sigma^2_t)$.
+5.  Répéter jusqu'à convergence.
+
+------------------------------------------------------------------------
+
+#### Propriétés de l’algorithme
+
+1.  *Réversibilité* :\
+    La symétrie de la loi de transition $\mu$ implique que
+    $\mu((m_t, \sigma^2_t), (m', \sigma^{2'})) = \mu((m', \sigma^{2'}), (m_t, \sigma^2_t))$.\
+    Cela garantit que $\mu$ s’annule dans le calcul du ratio
+    d’acceptation, ce qui simplifie l’algorithme.
+
+2.  *Convergence* :\
+    Sous des hypothèses générales (irréductibilité, aperiodicité), la
+    chaîne converge vers la distribution cible $\pi(m, \sigma^2 | X)$.
+
+------------------------------------------------------------------------
+
+```{r}
+# On va travailler avec Log-vraisemblance au lieu de la vrissemblance
+log_likelihood <- function(m, sigma2, X) {
+  n <- length(X)
+  -0.5 * n * log(2 * pi * sigma2) - sum((X - m)^2) / (2 * sigma2)
+}
+
+# Log-prior (non informative avec la loi de Jeffreys pour sigma^2)
+log_prior <- function(m, sigma2) {
+  if (sigma2 > 0) {
+    return(-log(sigma2))  # Loi de Jeffreys : pi(sigma^2) ∝ 1 / sigma^2
+  } else {
+    return(-Inf)  # Valeur impossible pour sigma^2
+  }
+}
+
+# Algorithme Metropolis-Hastings
+mcmc_sampler <- function(X, iter = 1000, sigma_m = 0.5, sigma_s2 = 0.5) {
+  n <- length(X)
+  m_chain <- numeric(iter)  # Chaîne pour m
+  s2_chain <- numeric(iter)  # Chaîne pour sigma^2
+  
+  # Initialisation
+  m_current <- -1
+  s2_current <- 0.2
+  
+  for (i in 1:iter) {
+    # Proposer un nouveau m et un nouveau sigma^2
+    m_proposed <- rnorm(1, m_current, sigma_m)  
+    s2_proposed <- abs(rnorm(1, s2_current, sigma_s2))  
+    
+    # Calcul du ratio d'acceptation (logarithmique)
+    log_r <- (log_likelihood(m_proposed, s2_proposed, X) + log_prior(m_proposed, s2_proposed)) - 
+             (log_likelihood(m_current, s2_current, X) + log_prior(m_current, s2_current))
+    
+    # Décision d'acceptation
+    if (log(runif(1)) < log_r) {
+      m_current <- m_proposed
+      s2_current <- s2_proposed
+    }
+    
+    # Stocker les valeurs dans les chaînes
+    m_chain[i] <- m_current
+    s2_chain[i] <- s2_current
+  }
+  
+  return(data.frame(m = m_chain, sigma2 = s2_chain))
+}
+
+# Simulation de données
+set.seed(42)
+m0 <- 10  
+sigma0 <- sqrt(2)  
+n <- 50  
+X <- rnorm(n, mean = m0, sd = sigma0)  
+
+# Exécution de l'algorithme
+set.seed(42)
+samples <- mcmc_sampler(X, iter = 10000, sigma_m = 0.5, sigma_s2 = 0.2)
+
+# Visualisation des résultats
+par(mfrow = c(2, 2))
+plot(samples$m, type = "l", main = "Chaîne de m", ylab = "m", xlab = "Itérations")
+plot(samples$sigma2, type = "l", main = "Chaîne de sigma^2", ylab = "sigma^2", xlab = "Itérations")
+hist(samples$m, breaks = 30, main = "Loi a posteriori de m", col = "lightblue", freq = FALSE)
+hist(samples$sigma2, breaks = 30, main = "Loi a posteriori de sigma^2", col = "lightblue", freq = FALSE)
+
+# Estimations finales
+cat("Estimation de m (max a posteriori) :", max(samples$m), "\n")
+cat("Estimation de sigma^2 (max a posteriori) :", max(samples$sigma2), "\n")
+
+```
+
+```{r}
+## Représentation de la loi a posteriori du couple (m, sigma^2) et calcul de la covariance
+
+# Nuage de points des échantillons de (m, sigma^2)
+plot(samples$m, samples$sigma2, pch = 20, col = rgb(0, 0, 1, 0.3),
+     xlab = "m", ylab = expression(sigma^2),
+     main = "Nuage de points de la loi a posteriori de (m, sigma^2)")
+
+# Ajout d'un contour de densité via une estimation en 2D (kde2d du package MASS)
+library(MASS)
+dens <- kde2d(samples$m, samples$sigma2, n = 50)
+contour(dens, add = TRUE, col = "red", lwd = 2)
+
+# Calcul de la covariance entre m et sigma^2
+cov_ms <- cov(samples$m, samples$sigma2)
+cat("La covariance entre m et sigma^2 est :", cov_ms, "\n")
+```
+
+La covariance $$
+\text{Cov}(m, \sigma^2) = 0.0339
+$$ est proche de zéro, indiquant une *faible dépendance linéaire* entre
+$m$ et $\sigma^2$.
+
+3 - Mettre en place une procédure MCMC pour simuler la loi a posteriori
+du couple $(m,\sigma^2)$ à partir de lois a priori conjuguées (*à faire
+à la maison*).
+
+## 2ème exercice - Loi a posteriori pour $(m,\sigma^2)$ dans le cas du Krigeage bayesien
+
+On se place maintenant sur un vecteur d'observation
+$\mathbf{Y}_{\mathbb{X}}$ aux points du plan
+$\mathbb{X}=\{x_1, ..., x_n\} \subset [0,1]$ issu d'un processus
+gaussien de portée connue $\theta = \theta_0$ dont on cherche à estimer
+la moyenne $m$ et la variance $\sigma^2$.
+
+## Question 1:
+
+On se donne une trajectoire d'un processus gaussien sur $[0,1]$.
+
+```{r}
+# Installer et charger les packages nécessaires
+if (!require(DiceKriging)) install.packages("DiceKriging", dependencies = TRUE)
+if (!require(MASS)) install.packages("MASS", dependencies = TRUE)
+library(DiceKriging)
+library(MASS)
+
+# Paramètres du processus gaussien
+m_true <- 10            # Moyenne réelle
+sigma2_true <- 2        # Variance réelle
+theta0 <- 0.2           # Portée (paramètre de corrélation)
+
+# Définition du noyau de covariance exponentiel
+covariance_function <- function(x, x_prime, theta) {
+  exp(-abs(x - x_prime) / theta)  # Noyau exponentiel avec portée theta
+}
+
+# Génération de la matrice de covariance
+generate_cov_matrix <- function(X, sigma2, theta) {
+  n <- length(X)
+  Sigma <- matrix(0, n, n)
+  for (i in 1:n) {
+    for (j in 1:n) {
+      Sigma[i, j] <- sigma2 * covariance_function(X[i], X[j], theta)
+    }
+  }
+  return(Sigma)
+}
+
+# Discrétisation de l'intervalle [0,1]
+n_points <- 100
+X <- seq(0, 1, length.out = n_points)
+
+# Génération d'une trajectoire du processus gaussien
+set.seed(42)
+cov_matrix <- generate_cov_matrix(X, sigma2_true, theta0)
+Y <- mvrnorm(mu = rep(m_true, n_points), Sigma = cov_matrix)  # Simulation du processus gaussien
+
+# Tracé de la trajectoire
+plot(X, Y, type = "l", col = "blue", lwd = 2, 
+     main = "Trajectoire d'un processus gaussien sur [0,1]",
+     xlab = "x", ylab = "Y(x)")
+abline(h = m_true, col = "red", lty = 2)  # Ligne horizontale pour la moyenne
+
+```
+
+## Question 2:
+
+On échantillonne cette trajectoire avec 5 points répartis sur
+l'intervalle.
+
+```{r}
+
+n_obs <- 5  # Nombre de points à échantillonner
+x_obs <- seq(0, 1, length.out = n_obs)  # Points d'échantillonnage
+y_obs <- approx(X, Y, x_obs)$y  # Interpolation pour obtenir Y aux points choisis
+
+# Tracé de la trajectoire avec points échantillonnés
+plot(X, Y, type = "l", col = "blue", lwd = 2, 
+     main = "Échantillonnage de 5 points sur la trajectoire du processus gaussien",
+     xlab = "x", ylab = "Y(x)")
+points(x_obs, y_obs, col = "red", pch = 19, cex = 1.5)  # Points échantillonnés en rouge
+abline(h = m_true, col = "red", lty = 2)  # Moyenne réelle en pointillé rouge
+
+# Affichage des points sélectionnés
+data.frame(x_obs, y_obs)
+
+
+```
+
+## Question 3:
+
+On met en place un krigeage universel : estimation des paramètres par
+maximum de vraisemblance et prédiction. Pour ce faire on pourra utiliser
+la fonction "km" du package DiceKriging avec des bornes de recherches
+très étroites autour de la vraie valeur de theta (cf ci-dessous).
+L'argument type de la fonction "predict" permet de faire une prévision
+en krigeage simple type="SK" ou en krigeage universel type="UK".
+
+```{r}
+# Définition de la portée cible (theta0)
+theta0 <- 0.2
+
+# Modèle de krigeage universel avec estimation par maximum de vraisemblance
+model_KU <- km(~1, design = data.frame(x = x_obs), response = y_obs, 
+               covtype = "matern5_2",  # Noyau de Matérn 5/2
+               lower = 0.199, upper = 0.201)  # Bornes très serrées autour de theta0 = 0.2
+
+# Affichage du modèle ajusté
+print(model_KU)
+
+# Prédiction du processus gaussien sur tout l'intervalle [0,1]
+pred_KU <- predict(model_KU, newdata = data.frame(x = X), type = "UK", checkNames = FALSE)
+
+# Tracé des résultats
+plot(X, Y, type = "l", col = "blue", lwd = 2, ylim = range(c(Y, pred_KU$mean, pred_KU$upper95, pred_KU$lower95)),
+     main = "Prédiction par krigeage universel (\u03B8 ≈ 0.2)",
+     xlab = "x", ylab = "Y(x)")
+
+# Ajouter la prédiction en rouge
+lines(X, pred_KU$mean, col = "red", lwd = 2)
+
+# Ajouter les points observés
+points(x_obs, y_obs, col = "black", pch = 19, cex = 1.5)
+
+# Ajouter un intervalle de confiance à 95%
+polygon(c(X, rev(X)), c(pred_KU$upper95, rev(pred_KU$lower95)), col = rgb(1,0,0,0.2), border = NA)
+
+# Ajouter une légende
+legend("topright", legend = c("Vraie trajectoire", "Prédiction (UK)", "Points observés"), 
+       col = c("blue", "red", "black"), lwd = c(2, 2, NA), pch = c(NA, NA, 19))
+
+```
+
+On souhaite retrouver ce résultat avec une démarche bayésienne. On se
+donne une loi a priori non informative pour $m$ (uniforme) et $\sigma^2$
+(Jeffreys). Les deux v.a. sont supposées indépendantes.
+
+## Question 4:
+
+On met en place une procedure d'estimation de la loi a posteriori du
+couple $(m,\sigma^2)$. Etudier la convergence de la chaine et la loi a
+posteriori du couple.
+
+```{r}
+
+# Fonction de vraisemblance basée sur un Processus Gaussien
+log_likelihood_GP <- function(m, sigma2, theta, y_obs, x_obs) {
+  n <- length(y_obs)
+  
+  # Matrice de corrélation R
+  corr_fun <- function(a, b, theta) exp(-abs(a - b) / theta)
+  R <- outer(x_obs, x_obs, function(a, b) corr_fun(a, b, theta))
+  
+  # Décomposition de Cholesky de R
+  chol_R <- tryCatch(chol(R), error = function(e) return(NULL))
+  if (is.null(chol_R)) return(-Inf)
+  
+  log_det_R <- 2 * sum(log(diag(chol_R)))
+  
+  # Calcul du terme quadratique
+  res <- y_obs - rep(m, n)
+  sol <- backsolve(chol_R, res, transpose = TRUE)
+  quad_form <- sum(sol^2)
+  
+  logL <- -0.5 * n * log(2 * pi) - 0.5 * n * log(sigma2) - 0.5 * log_det_R - (1/(2 * sigma2)) * quad_form
+  return(logL)
+}
+
+# Log-prior (non informatif : Uniforme pour m et Jeffreys pour sigma^2)
+log_prior <- function(m, sigma2) {
+  if (sigma2 > 0) {
+    return(-log(sigma2))  # Prior de Jeffreys : pi(sigma^2) ∝ 1 / sigma^2
+  } else {
+    return(-Inf)  # Valeur impossible pour sigma^2
+  }
+}
+
+# Algorithme MCMC avec Metropolis-Hastings pour m, sigma^2 et theta
+mcmc_sampler_GP <- function(y_obs, x_obs, iter = 10000, sigma_m = 0.5, sigma_s2 = 0.5, sigma_theta = 0.1) {
+  n <- length(y_obs)
+  m_chain <- numeric(iter)   # Chaîne pour m
+  s2_chain <- numeric(iter)  # Chaîne pour sigma^2
+  theta_chain <- numeric(iter)  # Chaîne pour theta
+
+  # Initialisation avec des estimateurs classiques
+  m_current <- mean(y_obs)
+  s2_current <- var(y_obs)
+  theta_current <- 1  # Initialisation arbitraire de theta
+
+  for (i in 1:iter) {
+    # Proposer de nouveaux candidats
+    m_proposed <- rnorm(1, m_current, sigma_m)
+    s2_proposed <- abs(rnorm(1, s2_current, sigma_s2))
+    theta_proposed <- abs(rnorm(1, theta_current, sigma_theta))
+
+    # Calcul du ratio d'acceptation (logarithmique)
+    log_r <- (log_likelihood_GP(m_proposed, s2_proposed, theta_proposed, y_obs, x_obs) + log_prior(m_proposed, s2_proposed)) - 
+             (log_likelihood_GP(m_current, s2_current, theta_current, y_obs, x_obs) + log_prior(m_current, s2_current))
+
+    # Acceptation selon Metropolis-Hastings
+    if (log(runif(1)) < log_r) {
+      m_current <- m_proposed
+      s2_current <- s2_proposed
+      theta_current <- theta_proposed
+    }
+
+    # Stocker les valeurs dans les chaînes
+    m_chain[i] <- m_current
+    s2_chain[i] <- s2_current
+    theta_chain[i] <- theta_current
+  }
+
+  return(data.frame(m = m_chain, sigma2 = s2_chain, theta = theta_chain))
+}
+
+# Exécution de l'algorithme MCMC
+set.seed(42)
+samples_bayes_GP <- mcmc_sampler_GP(y_obs, x_obs, iter = 10000, sigma_m = 0.5, sigma_s2 = 0.2, sigma_theta = 0.1)
+
+# Résumé des résultats
+cat("Estimation bayésienne de m (max a posteriori) :", max(samples_bayes_GP$m), "\n")
+cat("Estimation bayésienne de sigma^2 (max a posteriori) :", max(samples_bayes_GP$sigma2), "\n")
+cat("Estimation bayésienne de theta (max a posteriori) :", max(samples_bayes_GP$theta), "\n")
+
+# Tracés
+par(mfrow = c(3, 2))
+plot(samples_bayes_GP$m, type = "l", main = "Chaîne de Markov pour m", ylab = "m", xlab = "Itérations")
+plot(samples_bayes_GP$sigma2, type = "l", main = "Chaîne de Markov pour sigma^2", ylab = "sigma^2", xlab = "Itérations")
+plot(samples_bayes_GP$theta, type = "l", main = "Chaîne de Markov pour theta", ylab = "theta", xlab = "Itérations")
+hist(samples_bayes_GP$m, breaks = 30, main = "Loi a posteriori de m", col = "lightblue", freq = FALSE)
+hist(samples_bayes_GP$sigma2, breaks = 30, main = "Loi a posteriori de sigma^2", col = "lightblue", freq = FALSE)
+hist(samples_bayes_GP$theta, breaks = 30, main = "Loi a posteriori de theta", col = "lightblue", freq = FALSE)
+
+```
+
+## Étude de la convergence:
+
+```{r}
+plot(samples_bayes$m, samples_bayes$sigma2,
+     xlab = "m", ylab = "sigma^2",
+     main = "Nuage de points de la loi a posteriori (m, sigma^2)",
+     col = rgb(0, 0, 1, 0.5), pch = 16)
+```
+
+# Calcul de la covariance
+
+```{r}
+covariance_bayes <- cov(samples_bayes$m, samples_bayes$sigma2)
+cat("Covariance entre m et sigma^2 (MCMC) :", covariance_bayes, "\n")
+```
+
+```{r}
+## QUESTION 5 : Calcul de la prédiction bayésienne (moyenne et variance a posteriori)
+
+# On suppose que les éléments suivants sont déjà définis dans votre notebook :
+# - x_obs, y_obs : vecteur des points d'observation et valeurs observées (cf. question 2)
+# - samples_bayes : data.frame issu de la chaîne MCMC, avec colonnes "m" et "sigma2" (cf. question 4)
+# - theta0 : portée connue, par exemple theta0 <- 0.2
+
+# Pour rappel, ici nous avons 5 points d'observation :
+# x_obs <- seq(0, 1, length.out = 5)
+# y_obs a été obtenu par interpolation de la trajectoire simulée
+
+# Pour la prédiction, on définit une grille sur [0,1]
+x_pred <- seq(0, 1, length.out = 100)
+
+# Recalculez la matrice de corrélation R entre les observations, en utilisant le noyau exponentiel
+corr_fun <- function(a, b, theta) {
+  exp(-abs(a - b) / theta)
+}
+R <- outer(x_obs, x_obs, function(a, b) corr_fun(a, b, theta0))
+R_inv <- solve(R)  # Inverse de R
+
+# Définition d'une fonction qui, pour un point de prédiction x0 et pour des valeurs (m, sigma2),
+# calcule le prédicteur simple (m_SK) et la variance associée (v_SK)
+krige_pred <- function(x0, m_val, sigma2_val, y_obs, R_inv, theta) {
+  # Calcul du vecteur de corrélation entre x0 et chaque x_obs
+  r_vec <- sapply(x_obs, function(x) exp(-abs(x0 - x) / theta))
+  # Prédicteur simple : m_SK(x0) = m + r_vec^T * R_inv * (y_obs - m)
+  # On soustrait m à chaque composante de y_obs
+  m_SK <- m_val + as.numeric(t(r_vec) %*% R_inv %*% (y_obs - rep(m_val, length(y_obs))))
+  # Variance conditionnelle : v_SK(x0) = sigma2 * (1 - r_vec^T * R_inv * r_vec)
+  v_SK <- sigma2_val * (1 - as.numeric(t(r_vec) %*% R_inv %*% r_vec))
+  return(c(m_SK = m_SK, v_SK = v_SK))
+}
+
+# Nombre d'échantillons issus de la chaîne MCMC (après burn-in)
+burn_in <- 2000
+posterior <- samples_bayes[(burn_in + 1):nrow(samples_bayes), ]
+N <- nrow(posterior)
+
+# Initialisation des matrices qui stockeront pour chaque échantillon et chaque point de prédiction
+# le prédicteur simple et la variance conditionnelle
+mSK_mat <- matrix(0, nrow = N, ncol = length(x_pred))
+vSK_mat <- matrix(0, nrow = N, ncol = length(x_pred))
+
+# Boucle sur les échantillons postérieurs et sur la grille de prédiction
+for (j in 1:N) {
+  m_j      <- posterior$m[j]
+  sigma2_j <- posterior$sigma2[j]
+  for (i in 1:length(x_pred)) {
+    pred_vals <- krige_pred(x_pred[i], m_j, sigma2_j, y_obs, R_inv, theta0)
+    mSK_mat[j, i] <- pred_vals["m_SK"]
+    vSK_mat[j, i] <- pred_vals["v_SK"]
+  }
+}
+
+# Calcul de la moyenne prédictive bayésienne :
+# mBK(x) ≈ (1/N) * somme sur j de mSK(x|(m, sigma2)_j)
+mBK <- colMeans(mSK_mat)
+
+# Calcul de la variance prédictive bayésienne par la formule de la variance totale :
+# vBK(x) ≈ moyenne des vSK(x) + variance entre les mSK(x) obtenus sur les échantillons
+vBK <- colMeans(vSK_mat) + apply(mSK_mat, 2, var)
+
+# --- Visualisation des résultats ---
+# Tracé de la moyenne prédictive et des intervalles de confiance à 95%
+plot(x_pred, mBK, type = "l", lwd = 2, col = "blue",
+     ylim = range(c(mBK - 2*sqrt(vBK), mBK + 2*sqrt(vBK))),
+     main = "Prédiction bayésienne : moyenne et variance a posteriori",
+     xlab = "x", ylab = "Prédiction")
+lines(x_pred, mBK + 2*sqrt(vBK), lty = 2, col = "gray")
+lines(x_pred, mBK - 2*sqrt(vBK), lty = 2, col = "gray")
+points(x_obs, y_obs, pch = 19, col = "red")
+legend("topright", legend = c("Moyenne prédictive", "Intervalle 95%", "Observations"),
+       col = c("blue", "gray", "red"), lty = c(1, 2, NA), pch = c(NA, NA, 19))
+
+```
+
+```{r}
+# --- Simulation de trajectoires conditionnelles d'un GP ---
+# Fonction de noyau exponentiel
+corr_fun <- function(a, b, theta) {
+ exp(-abs(a - b) / theta)
+}
+# Calcul de la matrice de corrélation entre les observations et son inverse
+R <- outer(x_obs, x_obs, function(a, b) corr_fun(a, b, theta0))
+R_inv <- solve(R)
+# Fonction pour simuler une trajectoire conditionnelle du GP pour un échantillon (m,sigma2)
+simulate_conditional_trajectory <- function(x_pred, x_obs, y_obs, m_val, sigma2_val, theta, nugget = 1e-8) {
+ # Dimensions
+ n_pred <- length(x_pred)
+ n_obs <- length(x_obs)
+
+ # Matrices de covariance
+ C_pp <- outer(x_pred, x_pred, function(a, b) corr_fun(a, b, theta)) # C_pp
+ C_pobs <- outer(x_pred, x_obs, function(a, b) corr_fun(a, b, theta)) #C_pobs
+
+ # Moyenne conditionnelle
+ mu_cond <- m_val + C_pobs %*% R_inv %*% (y_obs - rep(m_val, n_obs))
+
+ # Covariance conditionnelle
+ Sigma_cond <- sigma2_val * (C_pp - C_pobs %*% R_inv %*% t(C_pobs))
+ Sigma_cond <- Sigma_cond + diag(nugget, n_pred) # Ajouter un nugget pour la stabilité
+
+ # Simulation d'une trajectoire (tirage gaussien multivarié)
+ L <- chol(Sigma_cond)
+ z <- rnorm(n_pred)
+ trajectory <- as.vector(mu_cond + L %*% z)
+
+ return(list(mu_cond = mu_cond, Sigma_cond = Sigma_cond, trajectory = trajectory))
+}
+# --- Simulation de plusieurs trajectoires ---
+# Choix des indices dans la chaîne postérieure (par ex. 20 échantillons)
+burn_in <- 2000
+posterior <- samples_bayes[(burn_in + 1):nrow(samples_bayes), ]
+N_post <- nrow(posterior)
+set.seed(123) # Pour la reproductibilité
+indices <- round(seq(1, N_post, length.out = 2))
+# Stockage des trajectoires simulées
+trajectories <- matrix(0, nrow = length(x_pred), ncol = length(indices))
+# Boucle sur les échantillons sélectionnés
+for (k in seq_along(indices)) {
+ idx <- indices[k]
+ m_val <- posterior$m[idx]
+ sigma2_val <- posterior$sigma2[idx]
+ sim <- simulate_conditional_trajectory(x_pred, x_obs, y_obs, m_val, sigma2_val, theta0)
+ trajectories[, k] <- sim$trajectory
+}
+# --- Visualisation des trajectoires conditionnelles ---
+# Tracé des trajectoires simulées
+plot(x_pred, trajectories[,1], type = "l", lwd = 2, col = "gray",
+ ylim = range(trajectories, y_obs),
+ main = "Trajectoires conditionnelles du GP",
+ xlab = "x", ylab = "Y(x)")
+for (k in 2:ncol(trajectories)) {
+ lines(x_pred, trajectories[, k], col = "gray", lwd = 2)
+}
+# Ajouter la moyenne prédictive bayésienne (mBK calculée dans la question 5)
+lines(x_pred, mBK, col = "blue", lwd = 3)
+# Ajouter les points d'observation
+points(x_obs, y_obs, pch = 19, col = "red")
+# Légende
+legend("topright", legend = c("Trajectoires simulées", "Moyenne prédictive", "Observations"), col = c("gray", "blue", "red"), lty = c(1,1,NA), lwd = c(2,3,NA), pch = c(NA,NA, 19))
+
+
+```
+
+## 3ème exercice - Loi a posteriori pour ($\teta$, m,$\sigma^2$) et prediction dans le cas du Krigeage baysesien
+
+## 1 - Reprendre l’exercice précédent en ajoutant l’estimation de $\teta$
+
+D'abord on resimule une trajectoire GP et on sélectionne des obs :
+
+```{r}
+# Fonction de covariance exponentielle
+covariance_function <- function(x, x_prime, theta) {
+  exp(-abs(x - x_prime) / theta)
+}
+
+# Génération de la matrice de covariance pour une discrétisation de [0,1]
+generate_cov_matrix <- function(X, sigma2, theta) {
+  n <- length(X)
+  Sigma <- matrix(0, n, n)
+  for (i in 1:n) {
+    for (j in 1:n) {
+      Sigma[i, j] <- sigma2 * covariance_function(X[i], X[j], theta)
+    }
+  }
+  return(Sigma)
+}
+
+# Paramètres vrais
+m_true <- 10
+sigma2_true <- 2
+theta_true <- 0.2
+
+# Discrétisation de l'intervalle [0,1]
+n_points <- 100
+X <- seq(0, 1, length.out = n_points)
+
+# Génération de la trajectoire du GP
+cov_matrix <- generate_cov_matrix(X, sigma2_true, theta_true)
+Y <- as.vector(mvrnorm(n = 1, mu = rep(m_true, n_points), Sigma = cov_matrix))
+
+# Tracé de la trajectoire complète
+plot(X, Y, type = "l", col = "blue", lwd = 2, 
+     main = "Trajectoire du processus gaussien sur [0,1]",
+     xlab = "x", ylab = "Y(x)")
+abline(h = m_true, col = "red", lty = 2)
+
+n_obs <- 5
+x_obs <- seq(0, 1, length.out = n_obs)
+y_obs <- approx(X, Y, x_obs)$y
+
+# Affichage des observations sur la trajectoire
+points(x_obs, y_obs, col = "red", pch = 19, cex = 1.5)
+data.frame(x_obs, y_obs)
+
+```
+
+Maintenant, on rappelle la formule de la vraisemblance pour le cas d'un
+processus gaussien :
+
+$$
+\mathcal{L} (y_n, \theta, \sigma^2, m) =
+\left( \frac{1}{2\pi\sigma^2} \right)^{n/2}
+\left( \frac{1}{|R_{X,X}|} \right)^{1/2}
+\exp \left( -\frac{(y_n - m1_n)^{t} R_{X,X}^{-1} (y_n - m1_n)}{2\sigma^2} \right)
+$$
+
+On va faire exactement comme l'exercice 2, pour une question de
+stabilité, chatgpt nous suggère d'utiliser la composition de Cholesky
+pour calculer la log vraisemblance (sinon faudra inverser la matrice)
+
+```{r}
+
+log_likelihood_GP <- function(m, sigma2, theta, y_obs, x_obs) {
+  n <- length(y_obs)
+  # Matrice de corrélation R pour les observations
+  corr_fun <- function(a, b, theta) exp(-abs(a - b) / theta)
+  R <- outer(x_obs, x_obs, function(a, b) corr_fun(a, b, theta))
+  
+  # Décomposition de Cholesky de R
+  chol_R <- tryCatch(chol(R), error = function(e) return(NULL))
+  if (is.null(chol_R)) return(-Inf)
+  
+  log_det_R <- 2 * sum(log(diag(chol_R)))
+  
+  # Calcul du terme quadratique
+  res <- y_obs - rep(m, n)
+  sol <- backsolve(chol_R, res, transpose = TRUE)
+  quad_form <- sum(sol^2)
+  
+  logL <- -0.5 * n * log(2 * pi) - 0.5 * n * log(sigma2) - 0.5 * log_det_R - (1/(2 * sigma2)) * quad_form
+  return(logL)
+}
+
+```
+
+Maintenant fonction log-prior :
+
+```{r}
+
+log_prior_GP <- function(m, sigma2, theta, theta_min = 0.05, theta_max = 1) {
+  if (sigma2 <= 0 || theta <= theta_min || theta >= theta_max) {
+    return(-Inf)
+  } else {
+    # Pour m et theta uniformes, le terme constant est ignoré.
+    return(-log(sigma2))
+  }
+}
+
+```
+
+Maintenant on passe au MCMC, pareil qu'avant exactement même code
+quasiment, sauf u'on propose un theta aussi, comme avant également on
+travaille avec le log qui agit mieux avec les petites valeurs, et on
+adapte le taux d'aaceptation directement :
+
+```{r}
+
+mcmc_sampler_GP_full <- function(y_obs, x_obs, iter = 10000, 
+                                 sigma_m = 0.5, sigma_s2 = 0.2, sigma_theta = 0.05,
+                                 theta_min = 0.05, theta_max = 1) {
+  m_chain <- numeric(iter)
+  s2_chain <- numeric(iter)
+  theta_chain <- numeric(iter)
+  
+  # Initialisation avec les estimateurs classiques
+  m_current <- mean(y_obs)
+  s2_current <- var(y_obs)
+  theta_current <- 0.2  # une valeur de départ proche de la vraie
+  
+  for (i in 1:iter) {
+    # Propositions
+    m_proposed <- rnorm(1, m_current, sigma_m)
+    s2_proposed <- abs(rnorm(1, s2_current, sigma_s2))
+    theta_proposed <- rnorm(1, theta_current, sigma_theta)
+    
+    # Calcul du ratio d'acceptation (en log)
+    log_r <- (log_likelihood_GP(m_proposed, s2_proposed, theta_proposed, y_obs, x_obs) +
+              log_prior_GP(m_proposed, s2_proposed, theta_proposed, theta_min, theta_max)) -
+             (log_likelihood_GP(m_current, s2_current, theta_current, y_obs, x_obs) +
+              log_prior_GP(m_current, s2_current, theta_current, theta_min, theta_max))
+    
+    if (log(runif(1)) < log_r) {
+      m_current <- m_proposed
+      s2_current <- s2_proposed
+      theta_current <- theta_proposed
+    }
+    
+    m_chain[i] <- m_current
+    s2_chain[i] <- s2_current
+    theta_chain[i] <- theta_current
+  }
+  
+  return(data.frame(m = m_chain, sigma2 = s2_chain, theta = theta_chain))
+}
+
+# Exécution de l'algorithme MCMC
+set.seed(42)
+samples_full <- mcmc_sampler_GP_full(y_obs, x_obs, iter = 10000, 
+                                     sigma_m = 0.5, sigma_s2 = 0.2, sigma_theta = 0.05)
+
+```
+
+On visualise :
+
+```{r}
+par(mfrow = c(3,2))
+plot(samples_full$m, type = "l", main = "Chaîne de m", ylab = "m", xlab = "Itérations")
+hist(samples_full$m, breaks = 30, main = "Loi a posteriori de m", col = "lightblue", freq = FALSE)
+plot(samples_full$sigma2, type = "l", main = "Chaîne de sigma^2", ylab = "sigma^2", xlab = "Itérations")
+hist(samples_full$sigma2, breaks = 30, main = "Loi a posteriori de sigma^2", col = "lightblue", freq = FALSE)
+plot(samples_full$theta, type = "l", main = "Chaîne de theta", ylab = "theta", xlab = "Itérations")
+hist(samples_full$theta, breaks = 30, main = "Loi a posteriori de theta", col = "lightblue", freq = FALSE)
+
+```
+
+C'est assez conforme aux attentes, m bien centré sur 10, pour teta la
+loi à posteriori ne semble pas avoir réussi à extraire de l'information
+des données.
+
+Maintenant on passe au krigeage bayesien : on commence par fonction de
+krigeage simple :
+
+```{r}
+krige_pred_full <- function(x0, m_val, sigma2_val, theta_val, y_obs, x_obs) {
+  corr_fun <- function(a, b, theta) exp(-abs(a - b) / theta)
+  # Matrice de corrélation pour les observations
+  R <- outer(x_obs, x_obs, function(a, b) corr_fun(a, b, theta_val))
+  R_inv <- solve(R)
+  # Vecteur de corrélation entre x0 et les x_obs
+  r_vec <- sapply(x_obs, function(x) corr_fun(x0, x, theta_val))
+  
+  m_SK <- m_val + as.numeric(t(r_vec) %*% R_inv %*% (y_obs - rep(m_val, length(y_obs))))
+  v_SK <- sigma2_val * (1 - as.numeric(t(r_vec) %*% R_inv %*% r_vec))
+  
+  return(c(m_SK = m_SK, v_SK = v_SK))
+}
+
+```
+
+Maintenant on fait du krigeage bayesien, en considérant comme avant la
+moyenne des krigeages obtenus pour différents échantillons de
+paramètres, et la variance se calcule comme voulu:
+
+```{r}
+# Grille de prédiction
+x_pred <- seq(0, 1, length.out = 100)
+burn_in <- 2000
+posterior_full <- samples_full[(burn_in + 1):nrow(samples_full), ]
+N <- nrow(posterior_full)
+
+# Matrices pour stocker les prédictions conditionnelles
+mSK_mat <- matrix(0, nrow = N, ncol = length(x_pred))
+vSK_mat <- matrix(0, nrow = N, ncol = length(x_pred))
+
+for (j in 1:N) {
+  m_j      <- posterior_full$m[j]
+  sigma2_j <- posterior_full$sigma2[j]
+  theta_j  <- posterior_full$theta[j]
+  for (i in 1:length(x_pred)) {
+    pred_vals <- krige_pred_full(x_pred[i], m_j, sigma2_j, theta_j, y_obs, x_obs)
+    mSK_mat[j, i] <- pred_vals["m_SK"]
+    vSK_mat[j, i] <- pred_vals["v_SK"]
+  }
+}
+
+# Moyenne prédictive bayésienne et variance totale
+mBK <- colMeans(mSK_mat)
+vBK <- colMeans(vSK_mat) + apply(mSK_mat, 2, var)
+
+# Tracé de la prédiction avec intervalle de confiance à 95%
+plot(x_pred, mBK, type = "l", lwd = 2, col = "blue",
+     ylim = range(c(mBK - 2*sqrt(vBK), mBK + 2*sqrt(vBK))),
+     main = "Prédiction bayésienne intégrant theta",
+     xlab = "x", ylab = "Prédiction")
+lines(x_pred, mBK + 2*sqrt(vBK), lty = 2, col = "gray")
+lines(x_pred, mBK - 2*sqrt(vBK), lty = 2, col = "gray")
+points(x_obs, y_obs, pch = 19, col = "red")
+legend("topright", legend = c("Moyenne prédictive", "Intervalle 95%", "Observations"),
+       col = c("blue", "gray", "red"), lty = c(1, 2, NA), pch = c(NA, NA, 19))
+
+```
+
+Enfin, nous simulons quelques trajectoires conditionnelles du GP en
+utilisant des échantillons postérieurs des 3 paramètres :
+
+```{r}
+simulate_conditional_trajectory_full <- function(x_pred, x_obs, y_obs, m_val, sigma2_val, theta_val, nugget = 1e-8) {
+  corr_fun <- function(a, b, theta) exp(-abs(a - b) / theta)
+  n_pred <- length(x_pred)
+  n_obs <- length(x_obs)
+  
+  # Matrices de covariance
+  C_pp <- outer(x_pred, x_pred, function(a, b) corr_fun(a, b, theta_val))
+  C_pobs <- outer(x_pred, x_obs, function(a, b) corr_fun(a, b, theta_val))
+  R <- outer(x_obs, x_obs, function(a, b) corr_fun(a, b, theta_val))
+  R_inv <- solve(R)
+  
+  # Moyenne conditionnelle
+  mu_cond <- m_val + C_pobs %*% R_inv %*% (y_obs - rep(m_val, n_obs))
+  
+  # Covariance conditionnelle
+  Sigma_cond <- sigma2_val * (C_pp - C_pobs %*% R_inv %*% t(C_pobs))
+  Sigma_cond <- Sigma_cond + diag(nugget, n_pred)
+  
+  # Simulation d'une trajectoire
+  L <- chol(Sigma_cond)
+  z <- rnorm(n_pred)
+  trajectory <- as.vector(mu_cond + L %*% z)
+  
+  return(list(mu_cond = mu_cond, Sigma_cond = Sigma_cond, trajectory = trajectory))
+}
+
+# Choix de quelques indices postérieurs (par exemple 2 échantillons)
+indices <- round(seq(1, N, length.out = 2))
+trajectories <- matrix(0, nrow = length(x_pred), ncol = length(indices))
+
+for (k in seq_along(indices)) {
+  idx <- indices[k]
+  m_val      <- posterior_full$m[idx]
+  sigma2_val <- posterior_full$sigma2[idx]
+  theta_val  <- posterior_full$theta[idx]
+  sim <- simulate_conditional_trajectory_full(x_pred, x_obs, y_obs, m_val, sigma2_val, theta_val)
+  trajectories[, k] <- sim$trajectory
+}
+
+# Tracé des trajectoires conditionnelles
+plot(x_pred, trajectories[,1], type = "l", lwd = 2, col = "gray",
+     ylim = range(c(trajectories, y_obs, mBK)),
+     main = "Trajectoires conditionnelles du GP (avec estimation de theta)",
+     xlab = "x", ylab = "Y(x)")
+for (k in 2:ncol(trajectories)) {
+  lines(x_pred, trajectories[, k], col = "gray", lwd = 2)
+}
+lines(x_pred, mBK, col = "blue", lwd = 3)
+points(x_obs, y_obs, pch = 19, col = "red")
+legend("topright", legend = c("Trajectoires simulées", "Moyenne prédictive", "Observations"),
+       col = c("gray", "blue", "red"), lty = c(1, 1, NA), lwd = c(2, 3, NA), pch = c(NA, NA, 19))
+
+```
+
+##Question suivante : 2 - Etudier l’influence des éléments suivants sur
+l’estimation :
+
+Ici c'est juste le code d'avant au cas où on rend les parties
+séparemment
+
+```{r}
+
+
+# Fonction de covariance exponentielle (par défaut)
+cov_exp <- function(x, y, theta) {
+  exp(-abs(x - y) / theta)
+}
+
+# Génération de la matrice de covariance sur un vecteur X
+generate_cov_matrix <- function(X, sigma2, theta, cov_fun = cov_exp) {
+  n <- length(X)
+  Sigma <- matrix(0, n, n)
+  for(i in 1:n){
+    for(j in 1:n){
+      Sigma[i, j] <- sigma2 * cov_fun(X[i], X[j], theta)
+    }
+  }
+  return(Sigma)
+}
+
+# Log-vraisemblance pour les observations d'un GP (utilise la décomposition de Cholesky)
+log_likelihood_GP <- function(m, sigma2, theta, y_obs, x_obs, cov_fun = cov_exp) {
+  n <- length(y_obs)
+  # Matrice de corrélation R (sans le facteur sigma2)
+  R <- outer(x_obs, x_obs, function(a, b) cov_fun(a, b, theta))
+  chol_R <- tryCatch(chol(R), error = function(e) return(NULL))
+  if(is.null(chol_R)) return(-Inf)
+  
+  log_det_R <- 2 * sum(log(diag(chol_R)))
+  res <- y_obs - rep(m, n)
+  sol <- backsolve(chol_R, res, transpose = TRUE)
+  quad_form <- sum(sol^2)
+  
+  logL <- -0.5 * n * log(2 * pi) - 0.5 * n * log(sigma2) - 0.5 * log_det_R - (1/(2*sigma2)) * quad_form
+  return(logL)
+}
+
+# Log-prior pour (m, sigma2, theta)
+# m et theta uniformes (on ignore la constante) et sigma2 suit la loi de Jeffreys
+log_prior_GP <- function(m, sigma2, theta, theta_min = 0.05, theta_max = 1) {
+  if(sigma2 <= 0 || theta <= theta_min || theta >= theta_max) {
+    return(-Inf)
+  } else {
+    return(-log(sigma2))
+  }
+}
+
+# Algorithme MCMC (Metropolis-Hastings) pour estimer (m, sigma2, theta)
+# cov_fun est transmis pour pouvoir changer de noyau dans l'étude 3.
+mcmc_sampler_GP_full <- function(y_obs, x_obs, iter = 10000,
+                                 sigma_m = 0.5, sigma_s2 = 0.2, sigma_theta = 0.05,
+                                 theta_min = 0.05, theta_max = 1,
+                                 cov_fun = cov_exp,
+                                 init_theta = 0.2) {
+  m_chain <- numeric(iter)
+  s2_chain <- numeric(iter)
+  theta_chain <- numeric(iter)
+  
+  # Initialisation avec des estimateurs classiques
+  m_current <- mean(y_obs)
+  s2_current <- var(y_obs)
+  theta_current <- init_theta
+  
+  for(i in 1:iter) {
+    m_proposed <- rnorm(1, m_current, sigma_m)
+    s2_proposed <- abs(rnorm(1, s2_current, sigma_s2))
+    theta_proposed <- rnorm(1, theta_current, sigma_theta)
+    
+    log_r <- (log_likelihood_GP(m_proposed, s2_proposed, theta_proposed, y_obs, x_obs, cov_fun) +
+              log_prior_GP(m_proposed, s2_proposed, theta_proposed, theta_min, theta_max)) -
+             (log_likelihood_GP(m_current, s2_current, theta_current, y_obs, x_obs, cov_fun) +
+              log_prior_GP(m_current, s2_current, theta_current, theta_min, theta_max))
+    
+    if(log(runif(1)) < log_r) {
+      m_current <- m_proposed
+      s2_current <- s2_proposed
+      theta_current <- theta_proposed
+    }
+    
+    m_chain[i] <- m_current
+    s2_chain[i] <- s2_current
+    theta_chain[i] <- theta_current
+  }
+  
+  return(data.frame(m = m_chain, sigma2 = s2_chain, theta = theta_chain))
+}
+
+# Simulation de la trajectoire complète du GP sur [0,1]
+set.seed(42)
+m_true <- 10
+sigma2_true <- 2
+theta_true <- 0.2
+n_points <- 100
+X_full <- seq(0, 1, length.out = n_points)
+cov_matrix <- generate_cov_matrix(X_full, sigma2_true, theta_true)
+Y_full <- as.vector(mvrnorm(n = 1, mu = rep(m_true, n_points), Sigma = cov_matrix))
+
+```
+
+#influence du plan à nombre d’observations fixé
+
+Nous allons comparer trois plans d’observation (avec 5 points) :
+
+Uniforme : points équidistants Clusteré : points concentrés dans une
+partie de l’intervalle Aléatoire : points tirés aléatoirement
+
+Pour chaque plan, nous extrayons les observations depuis la trajectoire
+simulée et exécutons l’algorithme MCMC
+
+```{r}
+par(mfrow = c(1,3))
+
+# --- Plan 1 : Uniforme
+n_obs <- 5
+x_obs_uniform <- seq(0, 1, length.out = n_obs)
+y_obs_uniform <- approx(X_full, Y_full, x_obs_uniform)$y
+samples_uniform <- mcmc_sampler_GP_full(y_obs_uniform, x_obs_uniform, iter = 5000)
+
+hist(samples_uniform$m, breaks = 30, main = "Plan uniforme : m", col = "gray", freq = FALSE)
+hist(samples_uniform$theta, breaks = 30, main = "Plan uniforme : theta", col = "lightblue", freq = FALSE)
+
+
+# --- Plan 2 : Clusteré (ex : points entre 0.2 et 0.4)
+x_obs_cluster <- sort(runif(n_obs, min = 0.2, max = 0.4))
+y_obs_cluster <- approx(X_full, Y_full, x_obs_cluster)$y
+samples_cluster <- mcmc_sampler_GP_full(y_obs_cluster, x_obs_cluster, iter = 5000)
+
+hist(samples_cluster$m, breaks = 30, main = "Plan clusteré : m", col = "gray", freq = FALSE)
+hist(samples_cluster$theta, breaks = 30, main = "Plan clusteré : theta", col = "lightblue", freq = FALSE)
+
+# --- Plan 3 : Aléatoire
+x_obs_random <- sort(runif(n_obs, min = 0, max = 1))
+y_obs_random <- approx(X_full, Y_full, x_obs_random)$y
+samples_random <- mcmc_sampler_GP_full(y_obs_random, x_obs_random, iter = 5000)
+
+hist(samples_random$m, breaks = 30, main = "Plan aléatoire : m", col = "gray", freq = FALSE)
+hist(samples_random$theta, breaks = 30, main = "Plan aléatoire : theta", col = "lightblue", freq = FALSE)
+
+```
+
+On voit que le plan d'expérience influe beaucoup plus sur teta que sur m
+
+influence du nombre d’observations influence du choix du noyau influence
+de la portée initiale

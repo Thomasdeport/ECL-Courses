@@ -1,0 +1,587 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+# # ------------------------------------------------------------
+# # 1 - Etude des plans HLS
+# # ------------------------------------------------------------
+
+library(DiceDesign)
+library(pracma)
+library(geometry)
+source('functions/Minimax.R')
+```
+### Exercice 1
+# Question 1
+
+```{r}
+n <- 10   #Nb de points
+d <- 2    #dimension
+lhs_plan <- lhsDesign(n, d)
+plot(lhs_plan$design, pch=19, col="blue", xlab="X1", ylab="X2",main="Plan LHS")
+```
+
+```{r}
+par(mfrow=c(1,3))
+for (i in 1:3) {
+  lhs_alt <- lhsDesign(n, d, randomized = TRUE, seed = i)
+  plot(lhs_alt$design, pch=19, col="red", xlab="X1", ylab="X2")
+}
+```
+On remarque que les points LHS sont bien répartis, avec un seul point par ligne et par colonne. Il n'y a pas de regroupements excessifs. Cependant, leur distribution n'est pas toujours uniforme spatialement, et certaines zones sontplus denses que d'autres.Par exemple, le troisième plan prsente une zone assez vide en haut à droite.
+
+
+# Question 2)
+
+```{r}
+#LHS optimisé avec le critère Maximin
+lhs_maximin <- maximinSA_LHS(lhsDesign(n, d)$design)
+plot(lhs_maximin$design, pch=19, col="blue", xlab="X1", ylab="X2",main="Plan LHS optimisé (Maximin)")
+```
+
+```{r}
+par(mfrow=c(1,3))
+for (i in 1:3) {
+  lhs_alt_maxmin <- lhs_maximin <- maximinSA_LHS(lhsDesign(n, d, seed=i)$design)
+  plot(lhs_alt_maxmin$design, pch=19, col="red", xlab="X1", ylab="X2")
+}
+```
+Contrairement au troisième graph de la question 1, on n'observe plus de zones anormalement vides : la distribution semble meilleure si on ajoute le critère maximin
+
+# Question 3)
+```{r}
+lhs_discrep <- discrepSA_LHS(lhsDesign(n, d)$design)
+plot(lhs_discrep$design, pch=19, col="blue", xlab="X1", ylab="X2",main="Plan LHS optimisé (Discrépance centrée)")
+```
+```{r}
+par(mfrow=c(1,3))
+for (i in 1:3) {
+  lhs_discrep <- discrepSA_LHS(lhsDesign(n, d, seed=i)$design)
+  plot(lhs_discrep$design, pch=19, col="red", xlab="X1", ylab="X2")
+}
+```
+A vue d'oeil, il est difficile de comparer ces plans avec les précédents. Cependant, ces plans semblent mieux équilibrés que les LHS classiques de la question 1.
+
+
+
+
+# Question 4)
+
+```{r}
+#génération des trois plans
+lhs_standard <- lhsDesign(n, d)$design
+lhs_maximin <- maximinSA_LHS(lhs_standard)$design
+lhs_discrep <- discrepSA_LHS(lhs_standard)$design
+
+#calcul des critères pour chaque plan
+mindist_standard <- mindist(lhs_standard)
+mindist_maximin <- mindist(lhs_maximin)
+mindist_discrep <- mindist(lhs_discrep)
+
+minimax_standard <- Minimax(lhs_standard)
+minimax_maximin <- Minimax(lhs_maximin)
+minimax_discrep <- Minimax(lhs_discrep)
+
+discrep_standard <- discrepancyCriteria(lhs_standard)$DisC2
+discrep_maximin <- discrepancyCriteria(lhs_maximin)$DisC2
+discrep_discrep <- discrepancyCriteria(lhs_discrep)$DisC2
+
+#plot des resultats 
+results <- data.frame(
+  Plan = c("LHS Standard", "LHS Maximin", "LHS Discrepance"),
+  Maximin = c(mindist_standard, mindist_maximin, mindist_discrep),
+  Minimax = c(minimax_standard, minimax_maximin, minimax_discrep),
+  Discrépance = c(discrep_standard, discrep_maximin, discrep_discrep)
+)
+print(results)
+```
+On remarque que, logiquement, le plan LHS Maximin est le meilleur plan pour le critère Maximin et le plan LHS Discrepance est le meilleur pour le critère Discrepance(ils ont été construit pour ces métrique). Si on considère le critère Minimax, le meilleur plan est LHS Discrepance (Minimax = 0.28).
+On peut donc conclure que le plan LHS Discrepance est le meilleur plan car il est optimal pour 2 critères sur 3.
+
+# Question 5)
+
+```{r}
+# Paramètres
+n <- 50
+d <- 5   
+iter_max <- 5000
+
+lhs_standard <- lhsDesign(n, d)$design
+lhs_maximin <- maximinSA_LHS(lhs_standard, it=iter_max)$design
+lhs_discrep <- discrepSA_LHS(lhs_standard, it=iter_max)$design
+
+#evaluation des critères
+mindist_standard <- mindist(lhs_standard)
+mindist_maximin <- mindist(lhs_maximin)
+mindist_discrep <- mindist(lhs_discrep)
+
+# minimax_standard <- Minimax(lhs_standard)
+# minimax_maximin <- Minimax(lhs_maximin)
+# minimax_discrep <- Minimax(lhs_discrep)
+
+discrep_standard <- discrepancyCriteria(lhs_standard)$DisC2
+discrep_maximin <- discrepancyCriteria(lhs_maximin)$DisC2
+discrep_discrep <- discrepancyCriteria(lhs_discrep)$DisC2
+
+results <- data.frame(
+  Plan = c("LHS Standard", "LHS Maximin", "LHS Discrépance"),
+  Maximin = c(mindist_standard, mindist_maximin, mindist_discrep),
+  Discrépance = c(discrep_standard, discrep_maximin, discrep_discrep)
+)
+
+print(results)
+
+# Visualisation en projection 2D
+pairs(lhs_standard, main="LHS Standard - Projection 2D")
+pairs(lhs_maximin, main="LHS Maximin - Projection 2D")
+pairs(lhs_discrep, main="LHS Discrepance - Projection 2D")
+```
+L'analyse des critères mène aux mêmes conclusions que précédemment : LHS Maximin est plus performant lorsque l'on considère le critère Maximin et LHS Discrepance est plus performant lorsque l'on regarde le critère Discrepance. LHS Standard n'est performant pour aucun des critères.
+Lorsque l'on observe les projections, il semblerait que LHS Discrepance soit mieux équilibré que LHS Maximin. LHS Maximin laisse apparaître des motifs plus ou moins réguliers, ce qui ne semble pas être le cas pour LHS Discrepance
+
+
+# Question 6)
+```{r}
+# Paramètres
+n <- 50
+d <- 5
+iter_max <- 5000
+nb_iter <- 10
+
+# Initialisation
+maximin_values <- list(Standard = c(), Maximin = c(), Discrepance = c())
+discrep_values <- list(Standard = c(), Maximin = c(), Discrepance = c())
+for (i in 1:nb_iter) {
+  
+  set.seed(i * 100)
+  
+  lhs_standard <- lhsDesign(n, d)$design
+  lhs_maximin <- maximinSA_LHS(lhs_standard, it=iter_max)$design
+  lhs_discrep <- discrepSA_LHS(lhs_standard, it=iter_max)$design
+  
+  maximin_values$Standard <- c(maximin_values$Standard, mindist(lhs_standard))
+  maximin_values$Maximin <- c(maximin_values$Maximin, mindist(lhs_maximin))
+  maximin_values$Discrepance <- c(maximin_values$Discrepance, mindist(lhs_discrep))
+  
+  discrep_values$Standard <- c(discrep_values$Standard, discrepancyCriteria(lhs_standard)$DisC2)
+  discrep_values$Maximin <- c(discrep_values$Maximin, discrepancyCriteria(lhs_maximin)$DisC2)
+  discrep_values$Discrepance <- c(discrep_values$Discrepance, discrepancyCriteria(lhs_discrep)$DisC2)
+}
+
+# Convertir en dataframes
+maximin_df <- stack(maximin_values)
+discrep_df <- stack(discrep_values)
+
+# bboxplots
+par(mfrow=c(1,2))
+
+boxplot(values ~ ind, data = maximin_df, col = c("blue", "red", "green"),
+        main = "Boxplot du critère Maximin", xlab = "Type de LHS", ylab = "Maximin")
+
+boxplot(values ~ ind, data = discrep_df, col = c("blue", "red", "green"),
+        main = "Boxplot de la Discrépance Centrée", xlab = "Type de LHS", ylab = "Discrépance Centrée")
+
+par(mfrow=c(1,1))
+
+```
+On retrouve les resultats précédents : la médiane du Maximin est plus élevée pour LHS Maximin et la médiane de la Discrepance est plus élevée pour LHS Discrepance. On observe également que la variance du Maximin est très faible pour LHS Maximin, ce qui est logique car le plan est construit pour minimiser ce critère. Les 10 plans générés sont donc très proches. Le même phénomène se produit avec la Discrepance pour LHS Discrepance. On peut ajouter que la variance de la discrepance pour LHS Maximin est plus faible que la variance du Maximin pour LHS Discrepance.En ce qui concerne LHS Standard, la variance est très élevée pour la Discrepance et un peu plus faible pour Maximin.
+
+### Exercice 2
+```{r}
+library(sfsmisc)
+library(randtoolbox)
+```
+
+
+**Question 1**
+
+```{r}
+library(qrng)
+n <- 50  
+p <- 5  
+halton_seq <- halton(n, p)  
+pairs(halton_seq) 
+
+```
+
+**Question 2**
+
+```{r}
+n <- 50        
+dim <- 5       
+bases <- c(2, 3, 5, 17, 31)  
+halton_dim5 <- do.call(cbind, lapply(bases, function(b) sHalton(n, b)[1:n]))
+pairs(halton_dim5) 
+
+```
+
+On observe beaucoup de trou pour un nombre de point faible et des bases de nombre premier petite.\
+**Question 3**
+
+```{r}
+n <- 100  
+p <- 10
+halton_seq <- halton(n, p)  
+pairs(halton_seq) 
+```
+
+-   On peut observer que les points de la suite de Halton sont répartis de manière régulière dans l'espace, sans les "clustering" (groupes serrés) ou "vides" caractéristiques des générateurs aléatoires classiques.
+
+-   Dans un espace de 10 dimensions, il est impossible de visualiser toutes les dimensions à la fois, mais les projections dans le plan (ici par le biais des paires de dimensions) montrent que la suite de Halton donne des projections sont assez homogènes.
+
+En bref si on compare avec une séquence aléatoire classique, on observe :
+
+-   Une meilleure couverture de l'espace dans la suite de Halton.
+
+-   Moins de "clusters" ou "groupes" de points.
+
+-   Une distribution visuellement plus homogène.
+
+-   On remarque cependant l'existence de quelques trous dans les distributions comme poir 7-8 par exemple
+
+```{r}
+# Générer une suite de Sobol de 50 points en dimension 5
+library(randtoolbox)
+n1 <- 50
+p1 <- 5
+sobol_seq1 <- sobol(n1, p1)
+
+# Générer une suite de Sobol de 100 points en dimension 10
+n2 <- 100
+p2 <- 10
+sobol_seq2 <- sobol(n2, p2)
+
+print(dim(sobol_seq1))  
+print(dim(sobol_seq2))  
+
+par(mfrow=c(1,2))  # Deux graphiques côte à côte
+
+pairs(sobol_seq1, main="Sobol: 50 points en 5 dimensions")
+pairs(sobol_seq2, main="Sobol: 100 points en 10 dimensions")
+
+```
+
+-   On remarque que les suites de Sobol assurent une couverture régulière de l'espace, particulièrement efficaces pour des simulations en haute dimension.
+
+-   *Comparaison avec Halton :* Les suites de Sobol ont tendance à mieux performer pour des dimensions plus élevées, en maintenant une distribution uniforme sur l'espace.
+
+```{r}
+# Fonction pour calculer la discrépance centrée manuellement
+discrepancy_centered <- function(points, num_bins = 10) {
+  # Normalisation des points dans le domaine [0, 1]
+  points <- as.matrix(points)
+  n <- nrow(points)  # Nombre de points
+  p <- ncol(points)  # Dimension
+
+  # Grille dans chaque dimension
+  grid_edges <- seq(0, 1, length.out = num_bins + 1)
+  
+  # Calcul des "cellules" de la grille
+  count_matrix <- matrix(0, nrow = num_bins, ncol = num_bins)
+  
+  # Pour chaque point, déterminer à quelle cellule de la grille il appartient
+  for (i in 1:n) {
+    # Trouver l'indice de chaque dimension
+    cell_indices <- sapply(1:p, function(d) {
+      which(points[i, d] <= grid_edges)[1] - 1
+    })
+    count_matrix[cell_indices] <- count_matrix[cell_indices] + 1
+  }
+  
+  # Calcul de la discrépance centrée
+  expected_count <- n / (num_bins^p)  # Distribution uniforme attendue par cellule
+  discrepancy <- 0
+  
+  for (i in 1:num_bins) {
+    for (j in 1:num_bins) {
+      count <- count_matrix[i, j]
+      discrepancy <- discrepancy + (count - expected_count)^2
+    }
+  }
+  
+  # Normalisation de la discrépance
+  discrepancy <- discrepancy / n
+  
+  return(discrepancy)
+}
+
+
+maximin_distance <- function(points) {
+  dist_matrix <- dist(points)
+  return(min(dist_matrix))
+}
+
+# fonction permettant de comparer les valeurs de Max_min et discrépence en fonction du nombre de point et de la dimension
+compare_maximin_discrepancy <- function(n_values, p_values) {
+  maximin_results <- data.frame()
+  discrepancy_results <- data.frame()
+
+  for (n in n_values) {
+    for (p in p_values) {
+      
+      # Générer les suites de Sobol et Halton
+      sobol_seq <- sobol(n, dim = p)
+      halton_seq <- ghalton(n, p)
+      
+      # Calcul du maximin
+      maximin_sobol <- maximin_distance(sobol_seq)
+      maximin_halton <- maximin_distance(halton_seq)
+      
+      # Calcul de la discrépance centrée
+      discrepancy_sobol <- discrepancy_centered(sobol_seq)
+      discrepancy_halton <- discrepancy_centered(halton_seq)
+      
+      # Sauvegarder les résultats
+      maximin_results <- rbind(maximin_results, data.frame(n = n, p = p, 
+                                                            sequence = "Sobol", 
+                                                            maximin = maximin_sobol))
+      maximin_results <- rbind(maximin_results, data.frame(n = n, p = p, 
+                                                            sequence = "Halton", 
+                                                            maximin = maximin_halton))
+      
+      discrepancy_results <- rbind(discrepancy_results, data.frame(n = n, p = p, 
+                                                                   sequence = "Sobol", 
+                                                                   discrepancy = discrepancy_sobol))
+      discrepancy_results <- rbind(discrepancy_results, data.frame(n = n, p = p, 
+                                                                   sequence = "Halton", 
+                                                                   discrepancy = discrepancy_halton))
+    }
+  }
+  
+  return(list(maximin_results = maximin_results, discrepancy_results = discrepancy_results))
+}
+```
+
+```{r}
+n <- 100
+p_sobol <- 5
+p_halton <- 5
+
+sobol_seq <- sobol(n, dim = p_sobol)
+halton_seq <- halton(n, p_sobol)
+
+# Critère maximin : distance minimale entre les points (calcule la distance maximin)
+maximin_sobol <- maximin_distance(sobol_seq)
+maximin_halton <- maximin_distance(halton_seq) 
+
+# Discrépance centrée : calculer la discrépance centrée pour chaque suite
+discrepancy_sobol <- discrepancy_centered(sobol_seq)
+discrepancy_halton <- discrepancy_centered(halton_seq)
+
+# Afficher les résultats
+cat("Critère Maximin Sobol : ", maximin_sobol, "\n")
+cat("Critère Maximin Halton : ", maximin_halton, "\n")
+cat("Discrépance centrée Sobol : ", discrepancy_sobol, "\n")
+cat("Discrépance centrée Halton : ", discrepancy_halton, "\n")
+```
+
+On remarque que la suite de Sobol est mieux répartie sur le plan de par les critères Maxmin et de discrépence. On va illustrer cela par plusieurs graphiques portant sur le nombre de point et sur la dimension de l'espace sur lequel on effectue notre plan d'expérience:
+
+```{r}
+n_values <- c(10, 50, 100, 200) 
+p_values <- c(2, 5, 10, 20)    
+
+# Exécuter la comparaison
+results <- compare_maximin_discrepancy(n_values, p_values)
+```
+
+```{r}
+
+library(ggplot2)
+
+# Graphique pour Maximin avec des formes spécifiques pour Sobol et Halton
+ggplot(results$maximin_results, aes(x = p, y = maximin, color = as.factor(n), linetype = sequence)) +
+  geom_line(aes(group = interaction(n, sequence)), size = 1) +
+  geom_point(aes(shape = sequence), size = 3) +  # Ajouter des formes aux points
+  labs(title = "Évolution du critère Maximin",
+       x = "Dimension (p)",
+       y = "Distance Maximin",
+       color = "Nombre de points (n)",
+       linetype = "Séquence",
+       shape = "Séquence") +  # Légende pour n, linetype et shape
+  scale_linetype_manual(values = c("solid", "dashed")) +  # -- pour Sobol, solid pour Halton
+  scale_shape_manual(values = c(16, 17)) +  # 16 = cercles, 17 = triangles pour Sobol et Halton
+  theme_minimal()
+
+
+```
+
+```{r}
+# Graphique pour Maximin avec des formes spécifiques pour Sobol et Halton
+ggplot(results$maximin_results, aes(x = n, y = maximin, color = as.factor(p), linetype = sequence)) +
+  geom_line(aes(group = interaction(p, sequence)), size = 1) +
+  geom_point(aes(shape = sequence), size = 3) +  # Ajouter des formes aux points
+  labs(title = "Évolution du critère Maximin",
+       x = "nombre de points (n)",
+       y = "Distance Maximin",
+       color = "Dimension(p)",
+       linetype = "Séquence",
+       shape = "Séquence") +  
+  scale_linetype_manual(values = c("solid", "dashed")) +  # -- pour Sobol, solid pour Halton
+  scale_shape_manual(values = c(16, 17)) +  # 16 = cercles, 17 = triangles pour Sobol et Halton
+  theme_minimal()
+
+```
+On remarque qu'en règle générale, du point de vue des deux critères la séquence de Sobol donne des meilleurs resultats que ceux de Halton. 
+
+
+
+
+
+### Exercice 3
+
+# Question 1
+
+```{r}
+set.seed(14)
+N_BA = 5                ## Nombre de points de la base d'apprentissage (BA)
+d = 1                     ## Dimension de l'espace des entrees
+X_init <- lhsDesign(N_BA,d) # plan LHS non optimisé
+PX_BA <- maximinSA_LHS(X_init$design)$design
+plot(PX_BA, rep(1, N_BA), pch=19, col="blue", xlab="X", ylab="", yaxt="n",
+     main="Plan Space-Filling à 5 points en 1D", xlim=c(0,1))
+```
+
+
+# Question 2
+
+```{r}
+coef.cov <- c(theta <- 0.2)  # Paramètre de corrélation
+sigma <- 1                   # Variance
+trend <- c(intercept <- 0)   # Tendance constante nulle
+
+#Observations arbitraires
+Y_observed <- rep(1, N_BA)  
+
+# Création du modèle de krigeage avec covariance Matérn 5/2
+metamodel <- km(formula=~1, design=PX_BA, response=Y_observed,
+                 covtype="matern5_2", coef.trend=trend, 
+                 coef.cov=coef.cov, coef.var=sigma^2)
+
+# Résumé du modèle
+print(metamodel)
+```
+
+# Question 3
+```{r}
+#grille fine sur [0,1] pour l'évaluation de la variance
+N_BT <- 101  # Nombre de points pour la prédiction
+PX_BT <- seq(0, 1, length.out = N_BT)  
+
+#prédiction avec le modèle de krigeage
+krige_pred <- predict(metamodel, newdata = PX_BT, type = "SK")
+variance_krige <- krige_pred$sd^2
+
+#point où la variance est maximale
+x_max_var <- PX_BT[which.max(variance_krige)]
+y_max_var <- max(variance_krige)
+
+#Evolution de la variance de krigeage
+plot(PX_BT, variance_krige, type="l", col="blue", lwd=2, xlab="x", ylab="Variance de krigeage",
+     main="Évolution de la variance de krigeage sur [0,1]")
+points(x_max_var, y_max_var, col="red", pch=19, cex=1.5)  # Marquer le point max en rouge
+legend("bottomleft", legend="Point max variance", col="red", pch=19)
+
+#MAJ du modèele avec le point de variance max
+PX_BA <- rbind(PX_BA, x_max_var)
+Y_observed <- c(Y_observed, 1)  # Ajouter une observation fictive
+metamodel <- km(formula=~1, design=PX_BA, response=Y_observed,
+                 covtype="matern5_2", coef.trend=trend, 
+                 coef.cov=coef.cov, coef.var=sigma^2)
+
+# Afficher le nouveau modèle mis à jour
+print(metamodel)
+```
+On observe une evolution de la variance cohérente avec la question 1 : elle est maximale entre les deux premiers points car ce sont les deux points les plus éloignés. 
+
+# Question 4
+```{r}
+# Paramètres
+N_BA <- 6
+N_final <- 10
+N_add <- N_final - N_BA  # Nombre de points à ajouter
+N_BT <- 101
+PX_BT <- seq(0, 1, length.out = N_BT)
+variance_max_list <- c()
+for (i in 1:N_add) {
+  krige_pred <- predict(metamodel, newdata = PX_BT, type = "SK")
+  variance_max_list <- c(variance_max_list, max(krige_pred$sd^2))
+  x_max_var <- PX_BT[which.max(krige_pred$sd^2)]
+  PX_BA <- rbind(PX_BA, x_max_var)
+  Y_observed <- c(Y_observed, 1)  # Ajouter une observation fictive
+  metamodel <- km(formula=~1, design=PX_BA, response=Y_observed,
+                   covtype="matern5_2", coef.trend=trend, 
+                   coef.cov=coef.cov, coef.var=sigma^2)
+}
+
+# Tracé de la décroissance de la variance
+plot(1:N_add, variance_max_list, type="b", pch=19, col="blue",
+     xlab="Itération", ylab="Variance maximale", 
+     main="Décroissance de la variance de krigeage")
+grid()
+
+# Visualisation du plan final de 10 points
+plot(PX_BA, rep(1, nrow(PX_BA)), pch=19, col="blue", xlab="X", ylab="", yaxt="n",
+     main="Plan Space-Filling avec 10 points", xlim=c(0,1))
+points(PX_BA[1:N_BA], rep(1, N_BA), pch=19, col="red")  # Points initiaux en rouge
+legend("topright", legend=c("Plan initial", "Points ajoutés"), col=c("red", "blue"), pch=19)
+
+```
+La décroissance de la variance est cohérente avec la courbe observée à la question 3 : on observe 4 "bosses" qui constituent 4 points de variance haute. Les deux bosses les plus grandes ont plus ou moins la meme hauteur, ce que l'on observe sur le graphique de décroissance de la variance de krigeage : entre la 1ere et la 2eme itération, la variance maximale décroit légèrement. Après la 4ème itération, elle décroit bien plu fortement pour atteindre une valeur inférieure à 0.05 qui est correspond a la 5eme bosse sur le graphique de la question 3.
+
+```{r}
+# Paramètres
+N_BA <- 5   # Nombre initial de points
+d <- 2      # Dimension de l'espace
+N_final <- 10  # Nombre total de points à atteindre
+N_add <- N_final - N_BA  # Nombre de points à ajouter
+N_BT <- 50  # Taille de la grille de test pour la variance
+
+# Générer un plan initial LHS optimisé en 2D
+set.seed(123)
+X_init <- lhsDesign(N_BA, d)$design
+PX_BA <- maximinSA_LHS(X_init)$design  # Plan initial optimisé
+PX_BT <- expand.grid(seq(0, 1, length.out = N_BT), seq(0, 1, length.out = N_BT))
+colnames(PX_BT) <- colnames(PX_BA)
+
+# Définition du modèle de krigeage initial
+Y_observed <- rep(1, N_BA)
+coef.cov <- rep(0.2, d)
+sigma <- 1
+trend <- c(intercept <- 0)
+
+# modèle de krigeage
+metamodel <- km(formula=~1, design=PX_BA, response=Y_observed,
+                 covtype="matern5_2", coef.trend=trend, 
+                 coef.cov=coef.cov, coef.var=sigma^2)
+
+variance_max_list <- c()
+for (i in 1:N_add) {
+  krige_pred <- predict(metamodel, newdata = PX_BT, type = "SK")
+  variance_max_list <- c(variance_max_list, max(krige_pred$sd^2))
+  x_max_var <- PX_BT[which.max(krige_pred$sd^2), ]
+  PX_BA <- rbind(PX_BA, x_max_var)
+  Y_observed <- c(Y_observed, 1)
+  metamodel <- km(formula=~1, design=PX_BA, response=Y_observed,
+                   covtype="matern5_2", coef.trend=trend, 
+                   coef.cov=coef.cov, coef.var=sigma^2)
+}
+
+plot(1:N_add, variance_max_list, type="b", pch=19, col="blue",
+     xlab="Itération", ylab="Variance maximale", 
+     main="Décroissance de la variance de krigeage")
+grid()
+plot(PX_BA, pch=19, col="blue", xlab="X1", ylab="X2",
+     main="Plan Space-Filling Séquentiel en 2D", xlim=c(0,1), ylim=c(0,1))
+points(PX_BA[1:N_BA,], pch=19, col="red")  # Points initiaux en rouge
+legend("topright", legend=c("Plan initial", "Points ajoutés"), col=c("red", "blue"), pch=19)
+
+```
+
+
+
+
+
